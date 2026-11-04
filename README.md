@@ -1,6 +1,24 @@
-# btop-web
+# btop-web, btop in your browser
 
-[btop](https://github.com/aristocratos/btop) in your browser, served by [ttyd](https://github.com/tsl0922/ttyd), hardened for LAN use.
+<div align="center">
+
+<img src="assets/logo.svg" alt="btop" width="341" height="90" />
+
+[![Release](https://img.shields.io/github/v/release/Erreur32/btop-web?style=for-the-badge&logo=github&logoColor=white&label=Release&color=111827)](https://github.com/Erreur32/btop-web/releases)
+[![Build](https://img.shields.io/github/actions/workflow/status/Erreur32/btop-web/build.yml?branch=main&style=for-the-badge&logo=github&logoColor=white&label=Build&color=111827)](https://github.com/Erreur32/btop-web/actions/workflows/build.yml)
+[![Docker](https://img.shields.io/badge/Docker-ghcr.io-1f2937?style=for-the-badge&logo=docker&logoColor=38bdf8)](https://github.com/Erreur32/btop-web/pkgs/container/btop-web)
+![Arch](https://img.shields.io/badge/arch-amd64_|_arm64-111827?style=for-the-badge&logo=linux&logoColor=white)
+![btop](https://img.shields.io/badge/btop-1.4.8-111827?style=for-the-badge&logoColor=white)
+![ttyd](https://img.shields.io/badge/ttyd-1.7.7-111827?style=for-the-badge&logoColor=white)
+![Alpine](https://img.shields.io/badge/Alpine-3.24-111827?style=for-the-badge&logo=alpinelinux&logoColor=0d597f)
+![Trivy](https://img.shields.io/badge/Trivy-scanned-111827?style=for-the-badge&logo=aqua&logoColor=1904da)
+[![License](https://img.shields.io/badge/License-Apache_2.0-111827?style=for-the-badge&color=111827&labelColor=111827&logoColor=white)](LICENSE)
+
+**[btop](https://github.com/aristocratos/btop) in a browser tab, served by [ttyd](https://github.com/tsl0922/ttyd), hardened for LAN use. Drop-in replacement for the removed `big-bear-btop` image.**
+
+[Why](#why-btop-web-exists) | [Quick start](#quick-start) | [Login](#login-and-password) | [Security](#security) | [Variables](#variables) | [Migration](#migrating-from-big-bear-btop) | [Image tags](#image-tags) | [Changelog](CHANGELOG.md)
+
+</div>
 
 ```sh
 docker pull ghcr.io/erreur32/btop-web:latest
@@ -55,6 +73,27 @@ docker compose up -d
 ```
 
 Open `https://<server-ip>:7681`. The browser warns once that the certificate is self-signed: accept the exception, then log in.
+
+## Login and password
+
+The login lives in a `.env` file next to the compose file; the compose file only refers to it, so the password is never written in `docker-compose.yaml`.
+
+```sh
+# .env (never commit it, chmod 600)
+BTOP_USER=admin
+BTOP_PASS=change-me-at-least-12-chars   # openssl rand -base64 18
+```
+
+```yaml
+# docker-compose.yaml
+environment:
+  BTOP_USER: ${BTOP_USER:-admin}
+  BTOP_PASS: ${BTOP_PASS:?set BTOP_PASS in .env}
+```
+
+Docker Compose reads `.env` from the same folder by itself. Without `BTOP_PASS`, `docker compose up` refuses to start; with fewer than 12 characters, the container refuses to start. The browser then shows a standard login prompt (HTTP basic auth).
+
+Legacy compose files that set `GOTTY_AUTH_USER` / `GOTTY_AUTH_PASS` directly in `environment:` keep working (see [migration](#migrating-from-big-bear-btop)).
 
 ## Security
 
@@ -129,6 +168,17 @@ then `docker compose up -d`. `GOTTY_*` variables keep working. See `docker-compo
 
 **Rollback**: pin a previous dated tag (`image: ghcr.io/erreur32/btop-web:1.4.8-20261104`), or load the old image from the copy: `docker load -i big-bear-btop.tar`.
 
+## Image tags
+
+| Tag | What it is | When to use it |
+|---|---|---|
+| `latest` | last build of `main` | automatic updates (Watchtower, Dockhand...) |
+| `v1.0.0` | a btop-web release (see [CHANGELOG](CHANGELOG.md)) | pin a known version |
+| `1.4.8` | last build shipping btop 1.4.8 | follow one btop version, still get Alpine fixes |
+| `1.4.8-YYYYMMDD` | a dated weekly build | rollback |
+
+btop-web has its own version (`v1.0.0`, `v1.1.0`...); the btop version it ships is in the `io.btop.version` image label and in the changelog.
+
 ## Build
 
 ```sh
@@ -146,4 +196,11 @@ Bumping btop by hand: change `BTOP_VERSION` and `BTOP_SHA256` in the `Dockerfile
 
 - `build.yml`: on every push, every PR and every Monday. Build, tests, Trivy, then multi-arch push to `ghcr.io/erreur32/btop-web` with tags `latest`, `1.4.8` and `1.4.8-YYYYMMDD`.
 - `btop-release.yml`: every Monday, opens a PR when a new btop release is out. PRs created with `GITHUB_TOKEN` do not trigger CI: close and reopen it, or run `build` by hand.
+- `release.yml`: on each `vX.Y.Z` tag, creates the GitHub release with the matching CHANGELOG section; `build.yml` pushes the `vX.Y.Z` image tag at the same time.
 - Dependabot: GitHub Actions and Alpine base image versions.
+
+## Credits and license
+
+- [btop](https://github.com/aristocratos/btop) by aristocratos (Apache-2.0), logo in `assets/` from the btop repository.
+- [ttyd](https://github.com/tsl0922/ttyd) by tsl0922 (MIT).
+- btop-web is released under the [Apache License 2.0](LICENSE).
