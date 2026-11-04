@@ -136,6 +136,7 @@ make build    # local image btop-web:dev
 make test     # build + end-to-end tests (needs Docker and python3)
 make scan     # Trivy
 make buildx   # amd64 + arm64 without push (needs QEMU/binfmt for arm64)
+scripts/dev.sh  # local test server from this tree (hardened compose, port 7682, logs in the foreground)
 REGISTRY=ghcr.io/erreur32 make push
 ```
 

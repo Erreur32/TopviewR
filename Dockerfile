@@ -43,7 +43,9 @@ COPY --from=build /out/usr/local/ /usr/local/
 COPY --from=build /out/btop.conf.default /usr/local/share/btop/btop.conf.default
 COPY --chmod=0755 entrypoint.sh healthcheck.sh /usr/local/bin/
 
-ENV LANG=C.UTF-8 \
+# with pid: host tini is not PID 1: register it as child subreaper so it still reaps zombies
+ENV TINI_SUBREAPER=1 \
+    LANG=C.UTF-8 \
     XDG_CONFIG_HOME=/root/.config \
     XDG_STATE_HOME=/tmp \
     BTOP_PORT=7681
