@@ -1,0 +1,22 @@
+# Remplacement direct de big-bear-btop : même compose, seule la ligne image change.
+# Moins sûr que docker-compose.yaml (privileged, HTTP, réseau du conteneur) : étape de transition.
+services:
+  btop:
+    container_name: BTOP_media
+    image: ghcr.io/erreur32/btop-web:latest
+    restart: unless-stopped
+    privileged: true
+    tty: true
+    environment:
+      - GOTTY_AUTH_ENABLED=true
+      - GOTTY_AUTH_USER=${GOTTY_AUTH_USER}
+      - GOTTY_AUTH_PASS=${GOTTY_AUTH_PASS}
+    cpu_shares: 10
+    ports:
+      - 7681:7681
+    volumes:
+      - /proc:/proc
+      - /sys:/sys
+      - /dev:/dev
+      - /etc/localtime:/etc/localtime:ro
+      - .config:/root/.config/btop

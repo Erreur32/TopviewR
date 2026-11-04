@@ -1,0 +1,37 @@
+# Configuration sécurisée recommandée (sans privileged). Secrets dans .env (voir .env.example).
+services:
+  btop:
+    image: ${BTOP_IMAGE:-ghcr.io/erreur32/btop-web:latest}
+    container_name: ${BTOP_CONTAINER_NAME:-BTOP}
+    restart: unless-stopped
+    init: false            # tini est déjà le PID 1 de l'image
+    pid: host              # voir les processus de l'hôte
+    network_mode: host     # vraies stats réseau ; le port s'ouvre directement sur l'hôte
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    cap_add:
+      - CHOWN              # entrypoint : droits du dossier de config
+      - SETUID             # su-exec : lancer btop en non root
+      - SETGID
+    security_opt:
+      - no-new-privileges:true
+    cpu_shares: 10
+    environment:
+      BTOP_USER: ${BTOP_USER:-admin}
+      BTOP_PASS: ${BTOP_PASS:?définir BTOP_PASS dans .env}
+      BTOP_TLS: ${BTOP_TLS:-auto}
+      BTOP_TLS_SAN: ${BTOP_TLS_SAN:-}
+      BTOP_PORT: ${BTOP_PORT:-7681}
+      BTOP_BIND: ${BTOP_BIND:-}
+      BTOP_TITLE: ${BTOP_TITLE:-}
+    volumes:
+      - ./config:/root/.config/btop
+      - ./certs:/certs
+      - /etc/localtime:/etc/localtime:ro
+      # Disques de l'hôte : btop liste les montages qu'il voit, ils apparaîtront sous /host
+      - /:/host:ro,rslave
+    # GPU Intel/AMD (optionnel) :
+    # devices:
+    #   - /dev/dri:/dev/dri

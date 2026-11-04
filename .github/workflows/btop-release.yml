@@ -1,0 +1,36 @@
+name: btop-release
+# Chaque lundi : si une nouvelle version de btop existe, ouvre une PR qui met à jour le Dockerfile.
+on:
+  schedule:
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Comparer avec la dernière release
+        id: c
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cur=$(sed -n 's/^ARG BTOP_VERSION=//p' Dockerfile | head -1)
+          new=$(gh api repos/aristocratos/btop/releases/latest --jq .tag_name | sed 's/^v//')
+          echo "cur=$cur new=$new"
+          [ "$cur" = "$new" ] && exit 0
+          sha=$(curl -fsSL "https://github.com/aristocratos/btop/archive/refs/tags/v$new.tar.gz" | sha256sum | cut -d' ' -f1)
+          sed -i "s/^ARG BTOP_VERSION=.*/ARG BTOP_VERSION=$new/; s/^ARG BTOP_SHA256=.*/ARG BTOP_SHA256=$sha/" Dockerfile
+          echo "new=$new" >> "$GITHUB_OUTPUT"
+      - name: Ouvrir la PR
+        if: steps.c.outputs.new != ''
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: btop-${{ steps.c.outputs.new }}
+          title: "btop ${{ steps.c.outputs.new }}"
+          commit-message: "build: btop ${{ steps.c.outputs.new }}"
+          body: "Nouvelle version de btop : https://github.com/aristocratos/btop/releases/tag/v${{ steps.c.outputs.new }}"
