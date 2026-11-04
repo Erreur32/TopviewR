@@ -1,3 +1,8 @@
 *
 !entrypoint.sh
 !healthcheck.sh
+!menu.sh
+!session.sh
+!tmux.conf
+!licenses
+!assets/logo.svg

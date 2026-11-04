@@ -35,15 +35,15 @@ jobs:
           context: .
           pull: true
           load: true
-          tags: btop-web:ci
+          tags: topviewr:ci
 
       - name: Tests
-        run: ./tests/test.sh btop-web:ci
+        run: ./tests/test.sh topviewr:ci
 
       - name: Trivy
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: btop-web:ci
+          image-ref: topviewr:ci
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           exit-code: '1'
@@ -52,15 +52,19 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository_owner }}/btop-web
+          # btop-web: name before 1.1.0, still published so existing installs keep updating
+          images: |
+            ghcr.io/${{ github.repository_owner }}/topviewr
+            ghcr.io/${{ github.repository_owner }}/btop-web
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value=${{ steps.v.outputs.btop }},enable={{is_default_branch}}
             type=raw,value=${{ steps.v.outputs.btop }}-${{ steps.v.outputs.date }},enable={{is_default_branch}}
             type=semver,pattern=v{{version}}
           labels: |
-            org.opencontainers.image.title=btop-web
-            org.opencontainers.image.description=btop in the browser via ttyd, hardened for LAN use
+            org.opencontainers.image.title=TopviewR
+            org.opencontainers.image.description=btop, htop or nvtop in the browser via ttyd, hardened for LAN use
+            org.opencontainers.image.licenses=Apache-2.0 AND GPL-2.0-or-later AND GPL-3.0-or-later AND MIT AND ISC
 
       - name: Login GHCR
         if: github.event_name != 'pull_request'

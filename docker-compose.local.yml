@@ -3,8 +3,8 @@
 services:
   btop:
     build: .
-    image: btop-web:local
-    container_name: btop-web-local
+    image: topviewr:local
+    container_name: topviewr-local
     environment:
       BTOP_PORT: ${BTOP_PORT:-7682}
-      BTOP_TITLE: btop-web local test
+      BTOP_TITLE: TopviewR local test

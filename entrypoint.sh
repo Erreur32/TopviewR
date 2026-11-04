@@ -2,7 +2,7 @@
 # Prepares config and certificates, then replaces the shell with ttyd (exec).
 set -eu
 
-log() { echo "[btop-web] $*" >&2; }
+log() { echo "[topviewr] $*" >&2; }
 die() { log "ERROR: $*"; exit 1; }
 is_true() { case "$(echo "${1:-}" | tr '[:upper:]' '[:lower:]')" in true|1|yes|on) return 0 ;; *) return 1 ;; esac; }
 
@@ -15,20 +15,26 @@ if [ -n "${GOTTY_AUTH_ENABLED:-}" ] && ! is_true "$GOTTY_AUTH_ENABLED" && [ -z "
 
 PORT="${BTOP_PORT:-7681}"
 BTOP_UID="${BTOP_UID:-10001}"
-BTOP_GID="${BTOP_GID:-10001}"
+TOOL="${BTOP_TOOL:-btop}"
+case "$TOOL" in btop|htop|nvtop) ;; *) die "BTOP_TOOL must be btop, htop or nvtop" ;; esac
+# GPU render nodes are root:render 0660 on most hosts: without that group nvtop (and btop's GPU view) see no GPU.
+# su-exec sets a single group, so by default the monitor runs with the render group as its group.
+GPU_GID="$(stat -c %g /dev/dri/renderD* 2>/dev/null | head -1)"
+BTOP_GID="${BTOP_GID:-${GPU_GID:-10001}}"
 CONF_DIR="${XDG_CONFIG_HOME:-/root/.config}/btop"
 CERT_DIR="${BTOP_CERT_DIR:-/certs}"
 TLS_MODE="$(echo "${BTOP_TLS:-off}" | tr '[:upper:]' '[:lower:]')"
 
 case "$BTOP_UID$BTOP_GID" in *[!0-9]*) die "BTOP_UID and BTOP_GID must be numeric" ;; esac
 case "$PORT" in ''|*[!0-9]*) die "BTOP_PORT must be numeric" ;; esac
-[ "$BTOP_UID" = 0 ] && log "WARNING: btop runs as root, the k key can kill any host process."
+[ "$BTOP_UID" = 0 ] && log "WARNING: $TOOL runs as root, its kill key can end any host process."
 
 set -- ttyd -W -O -p "$PORT" -w /tmp \
 	-m "${BTOP_MAX_CLIENTS:-3}" \
-	-t "titleFixed=${BTOP_TITLE:-btop @ $(hostname)}" \
-	-t "fontSize=${BTOP_FONT_SIZE:-14}" \
-	-t "disableLeaveAlert=true"
+	-t "titleFixed=${BTOP_TITLE:-TopviewR @ $(hostname)}" \
+	-t "fontSize=${BTOP_FONT_SIZE:-16}" \
+	-t "disableLeaveAlert=true" \
+	-I /usr/local/share/topviewr/index.html
 
 if [ "${BTOP_THEME:-dark}" = light ]; then
 	set -- "$@" -t 'theme={"background":"#ffffff","foreground":"#000000","cursor":"#000000"}'
@@ -40,7 +46,7 @@ if [ -n "${BTOP_AUTH_HEADER:-}" ]; then
 	log "Auth delegated to the reverse proxy (header $BTOP_AUTH_HEADER). The port must only be reachable by the proxy."
 	set -- "$@" -H "$BTOP_AUTH_HEADER"
 elif [ "$NO_AUTH" = true ]; then
-	log "WARNING: authentication disabled, anyone on the network can see and control btop."
+	log "WARNING: authentication disabled, anyone on the network can see and control $TOOL."
 else
 	[ -n "$USER_PASS" ] || die "no password. Set BTOP_PASS (or GOTTY_AUTH_PASS), or BTOP_NO_AUTH=true to disable auth."
 	if [ "${#USER_PASS}" -lt 12 ] && ! is_true "${BTOP_ALLOW_WEAK_PASS:-}"; then
@@ -73,18 +79,32 @@ case "$TLS_MODE" in
 	*) die "BTOP_TLS must be off, auto or on" ;;
 esac
 
-# --- Persistent btop config ---
+# --- Persistent config: btop.conf at the root of the volume, htop/ and nvtop/ subfolders ---
+# always: with the menu, btop can be started whatever the default tool
 if [ ! -f "$CONF_DIR/btop.conf" ]; then
 	log "No btop.conf: copying the default config"
 	cp /usr/local/share/btop/btop.conf.default "$CONF_DIR/btop.conf" || log "config not copied (read-only volume?)"
 fi
-# btop (non-root) must be able to save its settings; error ignored on a read-only volume
-chown -R "$BTOP_UID:$BTOP_GID" "$CONF_DIR" 2>/dev/null || log "cannot chown $CONF_DIR, settings will not be saved"
+# the monitor (non-root) must be able to save its settings: chown only what it does not own yet (older image, new
+# BTOP_GID), contents before folders (-depth), since htop keeps its folder 0700, closed to root without DAC_OVERRIDE
+find "$CONF_DIR" -depth \( ! -user "$BTOP_UID" -o ! -group "$BTOP_GID" \) -exec chown "$BTOP_UID:$BTOP_GID" {} + 2>/dev/null || true
+[ "$(stat -c %u "$CONF_DIR" 2>/dev/null)" = "$BTOP_UID" ] || log "cannot chown $CONF_DIR, settings will not be saved"
 
 # Extra ttyd arguments (split on spaces, on purpose)
 # shellcheck disable=SC2086
 # ttyd -u does not change the UID of the launched program, su-exec does
-set -- "$@" ${TTYD_EXTRA_ARGS:-} su-exec "$BTOP_UID:$BTOP_GID" btop ${BTOP_ARGS:-}
+# the tools inherit ttyd's environment: drop the passwords so htop's environment view (e) cannot show them
+set -- "$@" ${TTYD_EXTRA_ARGS:-} env -u BTOP_PASS -u GOTTY_AUTH_PASS BTOP_TOOL="$TOOL" BTOP_CONF_DIR="$CONF_DIR" \
+	su-exec "$BTOP_UID:$BTOP_GID"
+if is_true "${BTOP_MENU:-true}"; then
+	# tmux layer: Esc menu and clickable bottom bar to switch between btop, htop and nvtop
+	set -- "$@" /usr/local/bin/session.sh
+elif [ "$TOOL" = btop ]; then
+	set -- "$@" btop ${BTOP_ARGS:-}
+else
+	# htop and nvtop follow XDG_CONFIG_HOME: point it at the mounted volume so their settings persist too
+	set -- "$@" env XDG_CONFIG_HOME="$CONF_DIR" "$TOOL" ${BTOP_ARGS:-}
+fi
 
-log "ttyd on port $PORT, TLS=$TLS_MODE, btop UID=$BTOP_UID"
+log "ttyd on port $PORT, TLS=$TLS_MODE, menu=${BTOP_MENU:-true}, default=$TOOL, UID=$BTOP_UID GID=$BTOP_GID"
 exec "$@"

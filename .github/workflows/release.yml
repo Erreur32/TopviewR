@@ -51,7 +51,7 @@ jobs:
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           tag_name: ${{ steps.ver.outputs.tag }}
-          name: btop-web ${{ steps.ver.outputs.tag }}
+          name: TopviewR ${{ steps.ver.outputs.tag }}
           body: ${{ steps.notes.outputs.body }}
           draft: false
           prerelease: false
