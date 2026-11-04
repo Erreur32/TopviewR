@@ -55,7 +55,7 @@ check "certificate kept across restart" "$(cat "$CERTS/cert.pem" | sha256sum)" "
 check "healthcheck over HTTPS" "$(docker exec "$NAME" /usr/local/bin/healthcheck.sh >/dev/null 2>&1 && echo 0 || echo 1)" 0
 
 echo "== Config volume with the hardened capabilities"
-CONF="$(mktemp -d)"
+CONF="$(mktemp -d)"; chmod 755 "$CONF"   # like ./config made by Docker or a default umask (mktemp is 0700, closed to root without DAC)
 # like after a first htop run: htop/ is 0700 and owned by the monitor; btop.conf is root's (older image)
 docker run --rm -v "$CONF:/c" --entrypoint sh "$IMG" -c 'mkdir -m 700 /c/htop && touch /c/htop/htoprc /c/btop.conf && chown -R 10001:10001 /c/htop'
 start -e BTOP_PASS="$PASS" --cap-drop ALL --cap-add CHOWN --cap-add SETUID --cap-add SETGID -v "$CONF:/root/.config/btop"
