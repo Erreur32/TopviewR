@@ -9,8 +9,9 @@ RUN apk add --no-cache build-base linux-headers curl
 WORKDIR /src
 RUN curl -fsSL -o btop.tar.gz "https://github.com/aristocratos/btop/archive/refs/tags/v${BTOP_VERSION}.tar.gz" \
  && echo "${BTOP_SHA256}  btop.tar.gz" | sha256sum -c - \
+    # btop only enables the Intel GPU sources on x86_64; forcing GPU_SUPPORT elsewhere needs them too
  && tar xzf btop.tar.gz --strip-components=1 \
- && make -j"$(nproc)" GPU_SUPPORT=true \
+ && make -j"$(nproc)" GPU_SUPPORT=true INTEL_GPU_SUPPORT=true \
  && make install DESTDIR=/out PREFIX=/usr/local \
  && rm -rf /out/usr/local/share/applications /out/usr/local/share/icons /out/usr/local/share/doc \
  && /out/usr/local/bin/btop --default-config \
