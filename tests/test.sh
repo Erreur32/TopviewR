@@ -50,8 +50,9 @@ start -e BTOP_PASS="$PASS" -e BTOP_TLS=auto -v "$CERTS:/certs"
 check "HTTPS valid credentials -> 200" "$(code -u "admin:$PASS" "https://127.0.0.1:$PORT/")" 200
 refused "plain HTTP not served" "$(code -u "admin:$PASS" "http://127.0.0.1:$PORT/")"
 [ -s "$CERTS/cert.pem" ] && ok "certificate written to /certs" || ko "certificate missing"
-sum1="$(cat "$CERTS/cert.pem" | sha256sum)"; docker restart "$NAME" >/dev/null; sleep 2
-check "certificate kept across restart" "$(cat "$CERTS/cert.pem" | sha256sum)" "$sum1"
+# read from the container: cert.pem is root's 0600, unreadable for a non-root CI runner
+sum1="$(docker exec "$NAME" sha256sum /certs/cert.pem)"; docker restart "$NAME" >/dev/null; sleep 2
+check "certificate kept across restart" "$(docker exec "$NAME" sha256sum /certs/cert.pem)" "$sum1"
 check "healthcheck over HTTPS" "$(docker exec "$NAME" /usr/local/bin/healthcheck.sh >/dev/null 2>&1 && echo 0 || echo 1)" 0
 
 echo "== Config volume with the hardened capabilities"
@@ -61,7 +62,8 @@ docker run --rm -v "$CONF:/c" --entrypoint sh "$IMG" -c 'mkdir -m 700 /c/htop &&
 start -e BTOP_PASS="$PASS" --cap-drop ALL --cap-add CHOWN --cap-add SETUID --cap-add SETGID -v "$CONF:/root/.config/btop"
 docker logs "$NAME" 2>&1 | grep -q 'cannot chown' && ko "no chown warning" || ok "no chown warning"
 check "btop.conf given to the monitor" "$(docker run --rm -v "$CONF:/c" --entrypoint stat "$IMG" -c %u /c/btop.conf)" 10001
-docker rm -f "$NAME" >/dev/null; docker run --rm -v "$CONF:/c" --entrypoint sh "$IMG" -c 'rm -rf /c/htop /c/btop.conf'; rmdir "$CONF"
+# hand the folder back (it now belongs to 10001, and /tmp is sticky) before removing it
+docker rm -f "$NAME" >/dev/null; docker run --rm -v "$CONF:/c" --entrypoint sh "$IMG" -c "rm -rf /c/htop /c/btop.conf && chown $(id -u):$(id -g) /c"; rmdir "$CONF"
 
 echo "== btop non-root"
 start -e BTOP_PASS="$PASS"
