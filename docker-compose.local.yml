@@ -1,0 +1,10 @@
+# Local test server: builds the image from this tree, same hardened setup as docker-compose.yaml.
+# Usage: scripts/dev.sh (or docker compose -f docker-compose.yaml -f docker-compose.local.yml up -d --build)
+services:
+  btop:
+    build: .
+    image: btop-web:local
+    container_name: btop-web-local
+    environment:
+      BTOP_PORT: ${BTOP_PORT:-7682}
+      BTOP_TITLE: btop-web local test

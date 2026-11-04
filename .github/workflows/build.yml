@@ -57,7 +57,7 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value=${{ steps.v.outputs.btop }},enable={{is_default_branch}}
             type=raw,value=${{ steps.v.outputs.btop }}-${{ steps.v.outputs.date }},enable={{is_default_branch}}
-            type=semver,pattern={{version}}
+            type=semver,pattern=v{{version}}
           labels: |
             org.opencontainers.image.title=btop-web
             org.opencontainers.image.description=btop in the browser via ttyd, hardened for LAN use
