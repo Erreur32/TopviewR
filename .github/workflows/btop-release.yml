@@ -28,7 +28,7 @@ jobs:
           echo "new=$new" >> "$GITHUB_OUTPUT"
       - name: Ouvrir la PR
         if: steps.c.outputs.new != ''
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           branch: btop-${{ steps.c.outputs.new }}
           title: "btop ${{ steps.c.outputs.new }}"
