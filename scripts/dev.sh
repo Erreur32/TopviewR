@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Local test server: builds the image from this tree, starts btop-web-local (hardened compose + docker-compose.local.yml),
+# Local test server: builds the image from this tree, starts topviewr-local (hardened compose + docker-compose.local.yml),
 # waits for the healthcheck, then follows the container logs. Ctrl+C stops the container.
 #
 #   scripts/dev.sh           build if needed, start, follow logs ; Ctrl+C stops the container
@@ -10,7 +10,7 @@ set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT"
-NAME=btop-web-local
+NAME=topviewr-local
 dc() { docker compose -f docker-compose.yaml -f docker-compose.local.yml "$@"; }
 healthy() { [[ $(docker inspect -f '{{.State.Health.Status}}' "$NAME" 2>/dev/null) == healthy ]]; }
 envval() { sed -n "s/^$1=//p" .env 2>/dev/null | head -1; }
@@ -50,4 +50,4 @@ echo "▸ STOP: Ctrl+C$([[ $keep = 0 ]] && echo " (stops the container)")"
 echo
 # hide libwebsockets internals and the healthcheck's own requests (127.0.0.1 every 30 s)
 docker logs -f --tail 50 "$NAME" 2>&1 \
-  | grep --line-buffered -vE '__lws_lc_(un)?tag|lws_gate_accepts|GOAWAY|HTTP / - 127\.0\.0\.1$|N:   |libwebsockets-evlib|lws_create_context|elops_init|Vhost .default.|lws_socket_bind|ttyd [0-9.]+ \(libwebsockets|tty configuration:|start command:|cert_lifetime'
+  | grep --line-buffered -vE '__lws_lc_(un)?tag|lws_gate_accepts|GOAWAY|HTTP / - 127\.0\.0\.1$|N:   |libwebsockets-evlib|lws_create_context|elops_init|Vhost .default.|lws_socket_bind|ttyd [0-9.]+ \(libwebsockets|tty configuration:|start command:|cert_lifetime|rops_handle_POLLIN_netlink|no tx credit'

@@ -1,7 +1,7 @@
 # Recommended hardened setup (no privileged). Secrets go in .env (see .env.example).
 services:
   btop:
-    image: ${BTOP_IMAGE:-ghcr.io/erreur32/btop-web:latest}
+    image: ${BTOP_IMAGE:-ghcr.io/erreur32/topviewr:latest}
     container_name: ${BTOP_CONTAINER_NAME:-BTOP}
     restart: unless-stopped
     init: false            # tini is already PID 1 in the image
@@ -19,6 +19,7 @@ services:
       - no-new-privileges:true
     cpu_shares: 10
     environment:
+      BTOP_TOOL: ${BTOP_TOOL:-btop}   # btop, htop or nvtop
       BTOP_USER: ${BTOP_USER:-admin}
       BTOP_PASS: ${BTOP_PASS:?set BTOP_PASS in .env}
       BTOP_TLS: ${BTOP_TLS:-auto}
@@ -32,6 +33,6 @@ services:
       - /etc/localtime:/etc/localtime:ro
       # Host disks: btop lists the mounts it sees, they show up under /host
       - /:/host:ro,rslave
-    # Intel/AMD GPU (optional):
+    # Intel/AMD GPU (optional, needed for nvtop and btop's GPU view):
     # devices:
     #   - /dev/dri:/dev/dri

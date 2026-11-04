@@ -3,7 +3,7 @@
 services:
   btop:
     container_name: BTOP_media
-    image: ghcr.io/erreur32/btop-web:latest
+    image: ghcr.io/erreur32/topviewr:latest
     restart: unless-stopped
     privileged: true
     tty: true

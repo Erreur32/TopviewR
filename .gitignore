@@ -2,3 +2,8 @@
 config/
 certs/
 .config/
+__pycache__/
+.env.*
+!.env.example
+*.pem
+*.tar

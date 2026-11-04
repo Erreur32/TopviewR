@@ -2,8 +2,8 @@
 BTOP_VERSION ?= $(shell sed -n 's/^ARG BTOP_VERSION=//p' Dockerfile | head -1)
 DATE         := $(shell date -u +%Y%m%d)
 REGISTRY     ?= ghcr.io/erreur32
-IMAGE        ?= $(REGISTRY)/btop-web
-LOCAL        ?= btop-web:dev
+IMAGE        ?= $(REGISTRY)/topviewr
+LOCAL        ?= topviewr:dev
 PLATFORMS    ?= linux/amd64,linux/arm64
 BUILD_ARGS    = --build-arg VERSION=$(BTOP_VERSION)-$(DATE) \
                 --build-arg REVISION=$(shell git rev-parse --short HEAD 2>/dev/null || echo local) \
