@@ -54,9 +54,9 @@ TopviewR only packages and hardens these projects; all the monitoring work is th
 
 | Project | Role in TopviewR | Repository |
 |---|---|---|
-| **btop** by aristocratos | default monitor (CPU, memory, disks, network, GPU, processes) | https://github.com/aristocratos/btop |
-| **htop** by the htop authors | alternative process monitor (`BTOP_TOOL=htop`) | https://github.com/htop-dev/htop |
-| **nvtop** by Maxime Schmitt | GPU monitor for AMD and Intel (`BTOP_TOOL=nvtop`) | https://github.com/Syllo/nvtop |
+| <img src="assets/apps/btop.svg" alt="" width="20" height="20" align="top" /> **btop** by aristocratos | default monitor (CPU, memory, disks, network, GPU, processes) | https://github.com/aristocratos/btop |
+| <img src="assets/apps/htop.svg" alt="" width="20" height="20" align="top" /> **htop** by the htop authors | alternative process monitor (`BTOP_TOOL=htop`) | https://github.com/htop-dev/htop |
+| <img src="assets/apps/nvtop.svg" alt="" width="20" height="20" align="top" /> **nvtop** by Maxime Schmitt | GPU monitor for AMD and Intel (`BTOP_TOOL=nvtop`) | https://github.com/Syllo/nvtop |
 | **ttyd** by Shuanglei Tao | web terminal: serves the monitor in the browser (auth, TLS, WebSocket) | https://github.com/tsl0922/ttyd |
 | **Alpine Linux** | base image | https://alpinelinux.org |
 | **tini** by Thomas Orozco | init process (signals, zombie reaping) | https://github.com/krallin/tini |
@@ -102,10 +102,10 @@ Open `https://<server-ip>:7681`. The browser warns once that the certificate is 
 The page opens on the default tool (`BTOP_TOOL`, btop unless set) with a one-line bar at the bottom:
 
 ```
- TopviewR @ host   [ btop ]  htop   nvtop                          Esc: menu
+ TopviewR @ host   Alt+1 [ btop ]  Alt+2 htop   Alt+3 nvtop        Esc: menu
 ```
 
-- **Click** `btop`, `htop` or `nvtop` in the bar to switch at once.
+- **Click** `btop`, `htop` or `nvtop` in the bar, or press **Alt+1**, **Alt+2**, **Alt+3** (with or without Shift, so AZERTY keyboards work too), to switch at once. Plain `1`, `2`, `3` stay with the tools (btop shows or hides its boxes, htop searches a PID).
 - **Esc** opens the switch menu on top of any tool: `1` btop, `2` htop, `3` nvtop (or arrows + Enter, or the mouse), `m` sends a real Esc to the current tool (btop's own Options/Help/Quit menu, closing a search in htop), `q` closes the session.
 - **Quitting a tool** (`q`, `F10`) shows a small list to pick another one.
 - Inside a tool, the mouse keeps working as usual (btop and htop are clickable).
@@ -151,7 +151,7 @@ Legacy compose files that set `GOTTY_AUTH_USER` / `GOTTY_AUTH_PASS` directly in 
 
 - **The password is visible in `ps` on the host**, and in btop's own process list (ttyd command line). ttyd only accepts credentials as an argument. Anyone with a shell on the server can read it: use a dedicated password, never reused elsewhere.
 - **No brute-force protection.** ttyd does not rate-limit attempts. Never expose the port to the Internet. For remote access use a VPN (WireGuard, Tailscale) or a reverse proxy with SSO plus `BTOP_AUTH_HEADER` (the port must then only be reachable by the proxy).
-- ttyd itself runs as root (it reads the certificates and starts btop); only btop, the keyboard-driven part, is non-root.
+- ttyd itself runs as root (it reads the certificates and starts btop); only btop, the keyboard-driven part, is non-root. A small root `sh` stays between ttyd and the tool: without `CAP_KILL`, ttyd may not signal the non-root tool, but it can stop this `sh`, which ends the whole session when the tab closes.
 
 ## What btop sees (measured on 2026-11-04)
 
@@ -264,4 +264,4 @@ TopviewR's own files (scripts, compose files, Dockerfile, docs) are released und
 | [ttyd](https://github.com/tsl0922/ttyd) by Shuanglei Tao | 1.7.7 | MIT | Alpine package, [upstream 1.7.7](https://github.com/tsl0922/ttyd/tree/1.7.7) |
 | [tmux](https://github.com/tmux/tmux) by Nicholas Marriott and contributors | 3.7c | ISC | Alpine package, [upstream](https://github.com/tmux/tmux) |
 
-The other packages come from Alpine Linux 3.24 unchanged, under their own licenses. The TopviewR logo in `assets/` is original; btop, htop, nvtop and ttyd are the names of their own projects.
+The other packages come from Alpine Linux 3.24 unchanged, under their own licenses. The TopviewR logo in `assets/` is original; btop, htop, nvtop and ttyd are the names of their own projects. The btop, htop and nvtop logos in `assets/apps/` are copied unmodified from their repositories (btop `Img/icon.svg`, htop `htop.svg`, nvtop `desktop/nvtop.svg`) and stay under their projects' licenses.

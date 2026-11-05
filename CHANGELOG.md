@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 TopviewR has its own version; the btop version it ships is listed in each entry.
 
+## [1.2.0] - 2026-11-05
+
+Ships **btop 1.4.8**, **htop 3.5.3**, **nvtop 3.3.2** and **ttyd 1.7.7** on **Alpine 3.24**, for `linux/amd64` and `linux/arm64`.
+
+### Added
+
+- **Alt+1, Alt+2, Alt+3 switch tools at once** (btop, htop, nvtop), without opening the menu; the shortcuts are shown in the bottom bar and in the Esc menu. They work with or without Shift (AZERTY keyboards). Plain digits stay with the tools.
+- **Project logos in the README**: btop, htop and nvtop logos next to their names in "Built on", copied unmodified from their repositories.
+
+### Fixed
+
+- **Closing the browser tab now ends the session**: with the hardened compose (`cap_drop: ALL`), ttyd (root) was not allowed to signal the non-root tool, so every closed tab left tmux and btop, htop or nvtop running for good. A small root `sh` now sits between ttyd and the tool; ttyd stops it and the session ends with it. Present since 1.0.0. `tests/test.sh` checks it with the hardened capabilities.
+
 ## [1.1.0] - 2026-11-05
 
 Renamed from btop-web to **TopviewR**. Ships **btop 1.4.8**, **htop 3.5.3**, **nvtop 3.3.2** and **ttyd 1.7.7** on **Alpine 3.24**, for `linux/amd64` and `linux/arm64`.

@@ -88,7 +88,7 @@ check "tmux layer under the tool" "$(docker exec "$NAME" sh -c 'for p in /proc/[
 
 echo "== tmux layer: no way to a shell"
 keys="$(docker run --rm --entrypoint sh "$IMG" -c 'export TMUX_TMPDIR=/tmp; grep -v destroy-unattached /usr/local/share/topviewr/tmux.conf > /tmp/t.conf; tmux -L t -f /tmp/t.conf new-session -d "sleep 5" && tmux -L t list-keys')"
-check "only the TopviewR bindings (10)" "$(printf '%s\n' "$keys" | grep -c .)" 10
+check "only the TopviewR bindings (16)" "$(printf '%s\n' "$keys" | grep -c .)" 16
 printf '%s\n' "$keys" | grep -qE 'command-prompt|new-window|split-window|new-pane|run-shell|copy-mode|pipe' \
 	&& ko "no binding can open a shell" || ok "no binding can open a shell"
 
@@ -96,6 +96,14 @@ echo "== BTOP_MENU=false: tool started directly"
 start -e BTOP_PASS="$PASS" -e BTOP_MENU=false
 python3 -I "$(dirname "$0")/ws_client.py" 127.0.0.1 "$PORT" admin "$PASS" 5 & sleep 3
 check "no tmux, btop directly" "$(docker exec "$NAME" sh -c 'for p in /proc/[0-9]*; do cat $p/comm 2>/dev/null; done' | grep -xE 'tmux|btop' | sort -u | paste -sd,)" btop
+
+echo "== Closing the tab ends the session (hardened capabilities: no CAP_KILL)"
+start -e BTOP_PASS="$PASS" --cap-drop ALL --cap-add CHOWN --cap-add SETUID --cap-add SETGID
+procs() { docker exec "$NAME" sh -c 'for p in /proc/[0-9]*; do cat $p/comm 2>/dev/null; done' | grep -cE '^(tmux|btop)' || true; }
+python3 -I "$(dirname "$0")/ws_client.py" 127.0.0.1 "$PORT" admin "$PASS" 4 & client=$!; sleep 3
+check "session runs while the tab is open" "$(procs | sed 's/^[1-9][0-9]*$/yes/')" yes
+wait "$client" || true; sleep 2
+check "nothing left once the tab is closed" "$(procs)" 0
 
 echo
 [ "$fails" -eq 0 ] && echo "All tests passed." || { echo "$fails test(s) failed."; exit 1; }
