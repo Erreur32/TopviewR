@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 TopviewR has its own version; the btop version it ships is listed in each entry.
 
+## [1.2.1] - 2026-11-05
+
+Ships **btop 1.4.8**, **htop 3.5.3**, **nvtop 3.3.2** and **ttyd 1.7.7** on **Alpine 3.24**, for `linux/amd64` and `linux/arm64`.
+
+### Security
+
+- **The password no longer shows in `ps` on the host**: ttyd only takes it as `-c user:pass`, so with `pid: host` any account on the server (and the process lists of btop and htop) could read it. ttyd now gets `-c TTYD_CREDENTIAL` and a small `LD_PRELOAD` shim (`ttyd-cred.c`, built with the image) hands it the value from its environment, which only root can read. Without the shim ttyd refuses to start, it never runs without a password. `tests/test.sh` checks every command line. Present since 1.0.0.
+
 ## [1.2.0] - 2026-11-05
 
 Ships **btop 1.4.8**, **htop 3.5.3**, **nvtop 3.3.2** and **ttyd 1.7.7** on **Alpine 3.24**, for `linux/amd64` and `linux/arm64`.

@@ -55,7 +55,9 @@ else
 		log "WARNING: password shorter than 12 characters (GOTTY_AUTH_PASS). Change it or switch to BTOP_PASS."
 	fi
 	case "$USER_NAME" in *:*) die "BTOP_USER must not contain ':'" ;; esac
-	set -- "$@" -c "$USER_NAME:$USER_PASS"
+	# not in ttyd's command line (world-readable in ps): ttyd-cred.so swaps the TTYD_CREDENTIAL placeholder for its value
+	export TTYD_CREDENTIAL="$USER_NAME:$USER_PASS"
+	set -- "$@" -c TTYD_CREDENTIAL
 fi
 
 # --- TLS ---
@@ -110,4 +112,6 @@ else
 fi
 
 log "ttyd on port $PORT, TLS=$TLS_MODE, menu=${BTOP_MENU:-true}, default=$TOOL, UID=$BTOP_UID GID=$BTOP_GID"
+# only for ttyd: the shim swaps the value of any -c option (busybox stat -c above)
+[ -z "${TTYD_CREDENTIAL:-}" ] || export LD_PRELOAD=/usr/local/lib/ttyd-cred.so
 exec "$@"
