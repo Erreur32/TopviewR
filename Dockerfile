@@ -19,6 +19,9 @@ RUN curl -fsSL -o btop.tar.gz "https://github.com/aristocratos/btop/archive/refs
     | sed -e "s/^use_fstab = true/use_fstab = false/" \
           -e "s|^disks_filter = \"\"|disks_filter = \"exclude=/etc/hostname /etc/hosts /etc/resolv.conf /etc/localtime\"|" \
     > /out/btop.conf.default
+# keeps the password out of ttyd's command line (see ttyd-cred.c)
+COPY ttyd-cred.c /src/
+RUN mkdir -p /out/usr/local/lib && gcc -shared -fPIC -O2 -Wall -Werror -o /out/usr/local/lib/ttyd-cred.so /src/ttyd-cred.c
 
 # ---------- build: nvtop compiled from source (not in Alpine stable) ----------
 FROM alpine:${ALPINE_VERSION} AS nvtop

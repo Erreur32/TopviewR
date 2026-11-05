@@ -35,6 +35,10 @@ check "valid credentials -> 200" "$(code -u "admin:$PASS" "http://127.0.0.1:$POR
 check "WebSocket same origin -> 101" "$(ws http "http://127.0.0.1:$PORT")" 101
 refused "WebSocket other origin refused" "$(ws http http://evil.example)"
 docker logs "$NAME" 2>&1 | grep -q "$PASS" && ko "password not in logs" || ok "password not in logs"
+# what any other account sees in ps (/proc/*/cmdline is world-readable)
+cmdlines="$(docker exec -u 10001:10001 "$NAME" sh -c 'for p in /proc/[0-9]*; do tr "\0" " " < $p/cmdline; echo; done')"
+check "ttyd command line readable for the check" "$(printf '%s\n' "$cmdlines" | grep -c '^ttyd .*-c TTYD_CREDENTIAL ' | sed 's/^[1-9][0-9]*$/yes/')" yes
+printf '%s\n' "$cmdlines" | grep -qF "$PASS" && ko "password not in any command line" || ok "password not in any command line"
 t0=$(date +%s); docker stop "$NAME" >/dev/null; t=$(( $(date +%s) - t0 ))
 [ "$t" -le 3 ] && ok "docker stop in ${t}s" || ko "docker stop too slow (${t}s)"
 
@@ -83,7 +87,7 @@ check "nvtop binary runs" "$(docker run --rm --entrypoint nvtop "$IMG" --version
 # read as the tool's own UID: root in the container may not read another user's environ
 envs="$(docker exec -u 10001:10001 "$NAME" sh -c 'for p in /proc/[0-9]*; do [ "$(cat $p/comm 2>/dev/null)" = htop ] && tr "\0" "\n" < $p/environ; done; true')"
 check "tools environment readable for the check" "$(printf '%s\n' "$envs" | grep -c '^BTOP_TOOL=' | sed 's/^[1-9][0-9]*$/yes/')" yes
-printf '%s\n' "$envs" | grep -qE '^(BTOP|GOTTY_AUTH)_PASS=' && ko "password not in the tools environment" || ok "password not in the tools environment"
+printf '%s\n' "$envs" | grep -qE '^((BTOP|GOTTY_AUTH)_PASS|TTYD_CREDENTIAL|LD_PRELOAD)=' && ko "password not in the tools environment" || ok "password not in the tools environment"
 check "tmux layer under the tool" "$(docker exec "$NAME" sh -c 'for p in /proc/[0-9]*; do cat $p/comm 2>/dev/null; done' | grep -c '^tmux' | sed 's/^[1-9][0-9]*$/yes/')" yes
 
 echo "== tmux layer: no way to a shell"

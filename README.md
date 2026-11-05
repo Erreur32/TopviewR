@@ -146,10 +146,11 @@ Legacy compose files that set `GOTTY_AUTH_USER` / `GOTTY_AUTH_PASS` directly in 
 | Too many btop sessions | 3 clients max (`BTOP_MAX_CLIENTS`) | |
 | Overpowered container | compose without `privileged`, `cap_drop: ALL` + 3 capabilities, `read_only`, `no-new-privileges` | |
 | Known vulnerabilities in the image | Trivy scan on every build | `make scan` |
+| Password read in `ps` by another host account | ttyd gets `-c TTYD_CREDENTIAL`; a small `LD_PRELOAD` shim (`ttyd-cred.c`) swaps in the value from ttyd's environment, readable only by root | test |
 
 **Known limits**
 
-- **The password is visible in `ps` on the host**, and in btop's own process list (ttyd command line). ttyd only accepts credentials as an argument. Anyone with a shell on the server can read it: use a dedicated password, never reused elsewhere.
+- **Root on the host can still read the password** (`docker inspect`, the environment of ttyd), like any container secret, and so can members of the `docker` group. Use a dedicated password, never reused elsewhere.
 - **No brute-force protection.** ttyd does not rate-limit attempts. Never expose the port to the Internet. For remote access use a VPN (WireGuard, Tailscale) or a reverse proxy with SSO plus `BTOP_AUTH_HEADER` (the port must then only be reachable by the proxy).
 - ttyd itself runs as root (it reads the certificates and starts btop); only btop, the keyboard-driven part, is non-root. A small root `sh` stays between ttyd and the tool: without `CAP_KILL`, ttyd may not signal the non-root tool, but it can stop this `sh`, which ends the whole session when the tab closes.
 
