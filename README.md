@@ -198,6 +198,7 @@ Uncomment `devices: /dev/dri` in the compose file. Not tested on real GPU hardwa
 | `BTOP_FONT_SIZE` | `16` | font size |
 | `BTOP_THEME` | `dark` | `light` for a light background |
 | `BTOP_AUTH_HEADER` | | auth done by a reverse proxy (`ttyd -H`) |
+| `BTOP_DEBUG` | `false` | `true` adds ttyd's notices to the logs (each connection, startup config); by default only errors and warnings |
 | `BTOP_ARGS`, `TTYD_EXTRA_ARGS` | | extra btop and ttyd options |
 
 btop config: `./config/btop.conf`, created on first start if missing (never overwritten). By default `use_fstab = false` and Docker's fake disks are filtered out, so the real host disks are shown.

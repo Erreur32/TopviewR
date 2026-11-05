@@ -27,6 +27,7 @@ services:
       BTOP_PORT: ${BTOP_PORT:-7681}
       BTOP_BIND: ${BTOP_BIND:-}
       BTOP_TITLE: ${BTOP_TITLE:-}
+      BTOP_DEBUG: ${BTOP_DEBUG:-false}  # true: ttyd notices in the logs (each connection)
     volumes:
       - ./config:/root/.config/btop
       - ./certs:/certs

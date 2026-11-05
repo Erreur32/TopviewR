@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 TopviewR has its own version; the btop version it ships is listed in each entry.
 
+## [1.3.0] - 2026-11-05
+
+Ships **btop 1.4.8**, **htop 3.5.3**, **nvtop 3.3.2** and **ttyd 1.7.7** on **Alpine 3.24**, for `linux/amd64` and `linux/arm64`.
+
+### Security
+
+- **The password no longer shows in the container logs**: at startup ttyd printed `credential: <base64 of user:pass>`, which anyone reading `docker logs` (Dozzle, Portainer...) could decode. `ttyd-cred.c` now masks that line, and it is no longer printed at the default log level anyway. `tests/test.sh` checks the base64 form too. Present since 1.0.0.
+
+### Added
+
+- **Startup header** in the logs: version, URL, auth mode (user name only), TLS, menu, UID/GID, log level, and a host summary (CPU, RAM, GPU render nodes, tool versions).
+- **`BTOP_DEBUG`**: `true` brings back ttyd's notices (each connection, startup config).
+
+### Changed
+
+- **Quiet logs by default**: ttyd only logs errors and warnings (refused origins stay visible), instead of six libwebsockets lines per request.
+
 ## [1.2.1] - 2026-11-05
 
 Ships **btop 1.4.8**, **htop 3.5.3**, **nvtop 3.3.2** and **ttyd 1.7.7** on **Alpine 3.24**, for `linux/amd64` and `linux/arm64`.

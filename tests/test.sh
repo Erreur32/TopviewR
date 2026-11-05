@@ -35,12 +35,22 @@ check "valid credentials -> 200" "$(code -u "admin:$PASS" "http://127.0.0.1:$POR
 check "WebSocket same origin -> 101" "$(ws http "http://127.0.0.1:$PORT")" 101
 refused "WebSocket other origin refused" "$(ws http http://evil.example)"
 docker logs "$NAME" 2>&1 | grep -q "$PASS" && ko "password not in logs" || ok "password not in logs"
+docker logs "$NAME" 2>&1 | grep -q '╔' && ok "startup header shown" || ko "startup header missing"
+docker logs "$NAME" 2>&1 | grep -q 'lws_gate_accepts\|credential:' && ko "no ttyd notices by default" || ok "no ttyd notices by default"
 # what any other account sees in ps (/proc/*/cmdline is world-readable)
 cmdlines="$(docker exec -u 10001:10001 "$NAME" sh -c 'for p in /proc/[0-9]*; do tr "\0" " " < $p/cmdline; echo; done')"
 check "ttyd command line readable for the check" "$(printf '%s\n' "$cmdlines" | grep -c '^ttyd .*-c TTYD_CREDENTIAL ' | sed 's/^[1-9][0-9]*$/yes/')" yes
 printf '%s\n' "$cmdlines" | grep -qF "$PASS" && ko "password not in any command line" || ok "password not in any command line"
 t0=$(date +%s); docker stop "$NAME" >/dev/null; t=$(( $(date +%s) - t0 ))
 [ "$t" -le 3 ] && ok "docker stop in ${t}s" || ko "docker stop too slow (${t}s)"
+
+echo "== BTOP_DEBUG: ttyd notices, credential still hidden"
+start -e BTOP_PASS="$PASS" -e BTOP_DEBUG=true
+code -u "admin:$PASS" "http://127.0.0.1:$PORT/" >/dev/null
+docker logs "$NAME" 2>&1 | grep -q 'HTTP / - ' && ok "debug: connection notices" || ko "debug: connection notices missing"
+docker logs "$NAME" 2>&1 | grep -q 'credential: (hidden' && ok "debug: credential line masked" || ko "debug: credential line not masked"
+B64="$(printf 'admin:%s' "$PASS" | base64 | tr -d '\n')"
+docker logs "$NAME" 2>&1 | grep -qF "$B64" && ko "debug: base64 credential not in logs" || ok "debug: base64 credential not in logs"
 
 echo "== GOTTY_* compatibility"
 start -e GOTTY_AUTH_ENABLED=true -e GOTTY_AUTH_USER=admin -e GOTTY_AUTH_PASS="$PASS"

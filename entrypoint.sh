@@ -6,6 +6,42 @@ log() { echo "[topviewr] $*" >&2; }
 die() { log "ERROR: $*"; exit 1; }
 is_true() { case "$(echo "${1:-}" | tr '[:upper:]' '[:lower:]')" in true|1|yes|on) return 0 ;; *) return 1 ;; esac; }
 
+# Startup header: settings and host summary, never a secret (only the user name)
+banner() {
+	b=$(printf '\033[1;36m'); d=$(printf '\033[2m'); g=$(printf '\033[1;32m'); r=$(printf '\033[0m')
+	line="════════════════════════════════════════════════════════════"
+	row() { printf '%s║%s  %-10s %s\n' "$b" "$r" "$1" "$2"; }
+	host="$(hostname)"
+	case "${BTOP_BIND:-}" in *[0-9].*[0-9]) host="$BTOP_BIND" ;; *)
+		for s in $(echo "${BTOP_TLS_SAN:-}" | tr ',' ' '); do case "$s" in *[!0-9.]*) ;; *) host="$s"; break ;; esac; done ;;
+	esac
+	case "$TLS_MODE" in off|false|0) scheme=http ;; *) scheme=https ;; esac
+	cpu="$(sed -n 's/^model name[[:space:]]*: //p' /proc/cpuinfo | head -1)"
+	ram="$(awk '/^MemTotal:/ { printf "%.1f GiB", $2 / 1048576 }' /proc/meminfo)"
+	set -- /dev/dri/renderD*
+	if [ -e "$1" ]; then gpu="$# render node(s) in /dev/dri"; else gpu="none (mount /dev/dri for nvtop)"; fi
+	ver() { "$@" 2>/dev/null | head -1 | tr -d '\033' | grep -o '[0-9][0-9.]*[0-9]' | head -1; }
+	{
+		printf '%s╔%s%s\n' "$b" "$line" "$r"
+		printf '%s║%s   %sTopviewR %s%s\n' "$b" "$r" "$g" "v$(cat /usr/local/share/topviewr/version 2>/dev/null || echo dev)" "$r"
+		printf '%s║%s   %sbtop, htop and nvtop in the browser%s\n' "$b" "$r" "$d" "$r"
+		printf '%s╠%s%s\n' "$b" "$line" "$r"
+		row "URL" "$scheme://$host:$PORT/"
+		row "Auth" "$AUTH_LABEL"
+		row "TLS" "$TLS_MODE"
+		row "Menu" "${BTOP_MENU:-true}, default $TOOL"
+		row "Runs as" "UID $BTOP_UID, GID $BTOP_GID"
+		row "Logs" "$LOG_LABEL"
+		printf '%s╠══ Host %s%s\n' "$b" "${line#════════}" "$r"
+		row "Host" "$(hostname)"
+		row "CPU" "${cpu:+$cpu, }$(nproc) threads"
+		row "RAM" "$ram"
+		row "GPU" "$gpu"
+		row "Tools" "btop $(ver btop --version), htop $(ver htop --version), nvtop $(ver nvtop --version), ttyd $(ver ttyd --version)"
+		printf '%s╚%s%s\n' "$b" "$line" "$r"
+	} >&2
+}
+
 # --- Credentials: BTOP_* wins, GOTTY_* kept for legacy compose files ---
 USER_NAME="${BTOP_USER:-${GOTTY_AUTH_USER:-admin}}"
 USER_PASS="${BTOP_PASS:-${GOTTY_AUTH_PASS:-}}"
@@ -36,6 +72,11 @@ set -- ttyd -W -O -p "$PORT" -w /tmp \
 	-t "disableLeaveAlert=true" \
 	-I /usr/local/share/topviewr/index.html
 
+# ttyd log level: errors and warnings only (refused origins stay visible); BTOP_DEBUG adds libwebsockets notices
+# (every connection, the startup config). The credential line is masked by ttyd-cred.so either way.
+if is_true "${BTOP_DEBUG:-}"; then LOG_LEVEL=7; LOG_LABEL="debug (ttyd notices)"; else LOG_LEVEL=3; LOG_LABEL="errors and warnings (BTOP_DEBUG=true for more)"; fi
+set -- "$@" -d "$LOG_LEVEL"
+
 if [ "${BTOP_THEME:-dark}" = light ]; then
 	set -- "$@" -t 'theme={"background":"#ffffff","foreground":"#000000","cursor":"#000000"}'
 fi
@@ -43,9 +84,11 @@ fi
 
 # --- Authentication ---
 if [ -n "${BTOP_AUTH_HEADER:-}" ]; then
+	AUTH_LABEL="reverse proxy (header $BTOP_AUTH_HEADER)"
 	log "Auth delegated to the reverse proxy (header $BTOP_AUTH_HEADER). The port must only be reachable by the proxy."
 	set -- "$@" -H "$BTOP_AUTH_HEADER"
 elif [ "$NO_AUTH" = true ]; then
+	AUTH_LABEL="DISABLED"
 	log "WARNING: authentication disabled, anyone on the network can see and control $TOOL."
 else
 	[ -n "$USER_PASS" ] || die "no password. Set BTOP_PASS (or GOTTY_AUTH_PASS), or BTOP_NO_AUTH=true to disable auth."
@@ -57,6 +100,7 @@ else
 	case "$USER_NAME" in *:*) die "BTOP_USER must not contain ':'" ;; esac
 	# not in ttyd's command line (world-readable in ps): ttyd-cred.so swaps the TTYD_CREDENTIAL placeholder for its value
 	export TTYD_CREDENTIAL="$USER_NAME:$USER_PASS"
+	AUTH_LABEL="password, user $USER_NAME"
 	set -- "$@" -c TTYD_CREDENTIAL
 fi
 
@@ -111,7 +155,7 @@ else
 	set -- "$@" env XDG_CONFIG_HOME="$CONF_DIR" "$TOOL" ${BTOP_ARGS:-}
 fi
 
-log "ttyd on port $PORT, TLS=$TLS_MODE, menu=${BTOP_MENU:-true}, default=$TOOL, UID=$BTOP_UID GID=$BTOP_GID"
+banner
 # only for ttyd: the shim swaps the value of any -c option (busybox stat -c above)
 [ -z "${TTYD_CREDENTIAL:-}" ] || export LD_PRELOAD=/usr/local/lib/ttyd-cred.so
 exec "$@"

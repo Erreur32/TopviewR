@@ -66,6 +66,7 @@ COPY --from=build /out/btop.conf.default /usr/local/share/btop/btop.conf.default
 COPY --chmod=0755 entrypoint.sh healthcheck.sh menu.sh session.sh /usr/local/bin/
 COPY tmux.conf /usr/local/share/topviewr/tmux.conf
 COPY assets/logo.svg /tmp/logo.svg
+COPY CHANGELOG.md /tmp/CHANGELOG.md
 # ttyd's own page with the TopviewR favicon and title, taken from the installed ttyd so it always matches its version
 RUN (ttyd -p 7999 -i lo true >/dev/null 2>&1 & pid=$!; \
      for i in 1 2 3 4 5 6 7 8 9 10; do curl -fsS -o /tmp/index.html http://127.0.0.1:7999/ && break; sleep 0.5; done; \
@@ -74,7 +75,10 @@ RUN (ttyd -p 7999 -i lo true >/dev/null 2>&1 & pid=$!; \
            -e 's|<title>[^<]*</title>|<title>TopviewR</title>|' /tmp/index.html \
  # fail the build if a future ttyd page no longer matches
  && grep -q 'image/svg+xml;base64' /tmp/index.html && grep -q '<title>TopviewR</title>' /tmp/index.html \
- && mv /tmp/index.html /usr/local/share/topviewr/index.html && rm /tmp/logo.svg
+ && mv /tmp/index.html /usr/local/share/topviewr/index.html && rm /tmp/logo.svg \
+ # TopviewR version for the startup header: the latest released entry of the changelog
+ && sed -n 's/^## \[\([0-9][0-9.]*\)\].*/\1/p' /tmp/CHANGELOG.md | head -1 > /usr/local/share/topviewr/version \
+ && grep -q . /usr/local/share/topviewr/version && rm /tmp/CHANGELOG.md
 # license texts of the bundled tools (btop Apache-2.0, htop GPL-2.0+, nvtop GPL-3.0+, ttyd MIT, tmux ISC); sources: see README
 COPY licenses/ /usr/local/share/licenses/
 
