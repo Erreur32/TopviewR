@@ -94,8 +94,11 @@ find "$CONF_DIR" -depth \( ! -user "$BTOP_UID" -o ! -group "$BTOP_GID" \) -exec 
 # shellcheck disable=SC2086
 # ttyd -u does not change the UID of the launched program, su-exec does
 # the tools inherit ttyd's environment: drop the passwords so htop's environment view (e) cannot show them
+# a root sh stays as ttyd's child: without CAP_KILL ttyd cannot signal the non-root tool, so a closed tab would leave
+# it running forever; it can signal this sh, whose exit closes the terminal and the kernel hangs up the whole session
+# ('; exit' keeps sh from exec-ing su-exec in its place)
 set -- "$@" ${TTYD_EXTRA_ARGS:-} env -u BTOP_PASS -u GOTTY_AUTH_PASS BTOP_TOOL="$TOOL" BTOP_CONF_DIR="$CONF_DIR" \
-	su-exec "$BTOP_UID:$BTOP_GID"
+	sh -c 'su-exec "$@"; exit' topviewr "$BTOP_UID:$BTOP_GID"
 if is_true "${BTOP_MENU:-true}"; then
 	# tmux layer: Esc menu and clickable bottom bar to switch between btop, htop and nvtop
 	set -- "$@" /usr/local/bin/session.sh
