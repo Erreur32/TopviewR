@@ -1,4 +1,5 @@
 # Recommended hardened setup (no privileged). Secrets go in .env (see .env.example).
+# No GPU. With a GPU use docker-compose.amd-intel.yaml or docker-compose.nvidia.yaml instead (see GPU in the README).
 services:
   btop:
     image: ${BTOP_IMAGE:-ghcr.io/erreur32/topviewr:latest}
@@ -34,8 +35,3 @@ services:
       - /etc/localtime:/etc/localtime:ro
       # Host disks: btop lists the mounts it sees, they show up under /host
       - /:/host:ro,rslave
-    # Intel/AMD GPU (optional, needed for nvtop and btop's GPU view):
-    # devices:
-    #   - /dev/dri:/dev/dri
-    # NVIDIA GPU: image ghcr.io/erreur32/topviewr:nvidia (BTOP_IMAGE in .env) and the NVIDIA runtime:
-    # runtime: nvidia

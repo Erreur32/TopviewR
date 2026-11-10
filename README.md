@@ -90,9 +90,18 @@ What to expect when you switch:
 
 ## Quick start
 
+Pick the compose file for your machine (all three have the same hardened setup, see [GPU](#gpu-btop-and-nvtop)):
+
+| Machine | Compose file | Image |
+|---|---|---|
+| no GPU (or not needed) | [`docker-compose.yaml`](docker-compose.yaml) | `topviewr:latest` |
+| AMD or Intel GPU | [`docker-compose.amd-intel.yaml`](docker-compose.amd-intel.yaml) | `topviewr:latest` |
+| NVIDIA GPU | [`docker-compose.nvidia.yaml`](docker-compose.nvidia.yaml) | `topviewr:nvidia` |
+
 ```sh
 cp .env.example .env
 # edit .env: BTOP_PASS (12 characters min.), BTOP_TLS_SAN (server IP and hostname)
+cp docker-compose.amd-intel.yaml docker-compose.yaml   # only for a GPU: or docker-compose.nvidia.yaml
 docker compose up -d
 ```
 
@@ -176,16 +185,36 @@ Two images, same tools, scripts and hardening. Both start fine without a GPU: nv
 
 NVIDIA needs its own image: btop and nvtop read NVIDIA GPUs through `libnvidia-ml`, which the NVIDIA container runtime mounts from the host driver. That library is built for glibc and crashes the tools on Alpine (musl).
 
-**AMD or Intel** (either image): uncomment `devices: /dev/dri` in the compose file. On most hosts `/dev/dri/renderD*` belongs to the `render` group (mode 0660); the entrypoint runs the monitor with that group, so it can open the GPU while staying non-root.
+Both GPU files are the default [`docker-compose.yaml`](docker-compose.yaml) plus a few lines. Check with `docker logs <container>`: the `GPU` line of the startup header must list your GPU, not `none`.
 
-**NVIDIA**: install the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) on the host (`docker info | grep -i runtimes` must list `nvidia`), then in the compose file:
+### No GPU
+
+[`docker-compose.yaml`](docker-compose.yaml), as is. btop and htop work fully; nvtop says it found no GPU and what to mount.
+
+### AMD or Intel
+
+[`docker-compose.amd-intel.yaml`](docker-compose.amd-intel.yaml) adds the GPU render nodes:
 
 ```yaml
-    image: ghcr.io/erreur32/topviewr:nvidia
+    devices:
+      - /dev/dri:/dev/dri
+```
+
+On most hosts `/dev/dri/renderD*` belongs to the `render` group (mode 0660); the entrypoint runs the monitor with that group, so it can open the GPU while staying non-root. Startup header: `GPU  1 render node(s) in /dev/dri`.
+
+### NVIDIA
+
+1. Install the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) on the host: `docker info | grep -i runtimes` must list `nvidia`.
+2. Use [`docker-compose.nvidia.yaml`](docker-compose.nvidia.yaml), which changes two lines:
+
+```yaml
+    image: ghcr.io/erreur32/topviewr:nvidia   # fixed: BTOP_IMAGE in .env does not apply here
     runtime: nvidia
 ```
 
-The image already sets `NVIDIA_VISIBLE_DEVICES=all` and `NVIDIA_DRIVER_CAPABILITIES=utility` (usage, VRAM, temperatures, processes: all the tools need). Nothing else changes: same read-only, non-root, no-new-privileges setup.
+The image already sets `NVIDIA_VISIBLE_DEVICES=all` and `NVIDIA_DRIVER_CAPABILITIES=utility` (usage, VRAM, temperatures, processes: all the tools need), so no `devices:` or `environment:` lines are needed. Same read-only, non-root, no-new-privileges setup. Startup header: `GPU  1 render node(s) in /dev/dri, 1 NVIDIA GPU(s)` and `Image  Debian 13.x, NVIDIA ready`.
+
+The image is fixed in that file on purpose: with the default `.env` (`BTOP_IMAGE=...:latest`), a `${BTOP_IMAGE}` line would silently run the Alpine image, where NVIDIA cannot work.
 
 Tested on 2026-11-10 with the hardened compose (non-root, read-only):
 
