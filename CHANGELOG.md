@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 TopviewR has its own version; the btop version it ships is listed in each entry.
 
+## [Unreleased]
+
+### Added
+
+- **One compose file per case**: `docker-compose.yaml` (no GPU), `docker-compose.amd-intel.yaml` (`/dev/dri`) and `docker-compose.nvidia.yaml` (`:nvidia` image, `runtime: nvidia`), with a README section for each.
+
 ## [1.4.0] - 2026-11-10
 
 Ships **btop 1.4.8**, **htop 3.5.3**, **nvtop 3.3.2** and **ttyd 1.7.7** on **Alpine 3.24**, for `linux/amd64` and `linux/arm64`; and the new **`:nvidia`** image on **Debian 13** (htop 3.4.1), for `linux/amd64`.

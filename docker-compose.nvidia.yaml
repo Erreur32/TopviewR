@@ -1,0 +1,42 @@
+# NVIDIA GPU: hardened setup + NVIDIA runtime, for nvtop and btop's GPU view. Secrets go in .env (see .env.example).
+# Needs the NVIDIA Container Toolkit on the host: `docker info | grep -i runtimes` must list nvidia.
+# Usage: docker compose -f docker-compose.nvidia.yaml up -d (or copy it to docker-compose.yaml)
+services:
+  btop:
+    # Debian variant: NVIDIA's libnvidia-ml needs glibc. Fixed on purpose: BTOP_IMAGE in .env does not apply here
+    image: ghcr.io/erreur32/topviewr:nvidia
+    container_name: ${BTOP_CONTAINER_NAME:-BTOP}
+    restart: unless-stopped
+    init: false            # tini is already PID 1 in the image
+    pid: host              # see host processes
+    network_mode: host     # real network stats; the port opens directly on the host
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    cap_add:
+      - CHOWN              # entrypoint: config folder ownership
+      - SETUID             # su-exec: run btop as non-root
+      - SETGID
+    security_opt:
+      - no-new-privileges:true
+    cpu_shares: 10
+    environment:
+      BTOP_TOOL: ${BTOP_TOOL:-btop}   # btop, htop or nvtop
+      BTOP_USER: ${BTOP_USER:-admin}
+      BTOP_PASS: ${BTOP_PASS:?set BTOP_PASS in .env}
+      BTOP_TLS: ${BTOP_TLS:-auto}
+      BTOP_TLS_SAN: ${BTOP_TLS_SAN:-}
+      BTOP_PORT: ${BTOP_PORT:-7681}
+      BTOP_BIND: ${BTOP_BIND:-}
+      BTOP_TITLE: ${BTOP_TITLE:-}
+      BTOP_DEBUG: ${BTOP_DEBUG:-false}  # true: ttyd notices in the logs (each connection)
+    volumes:
+      - ./config:/root/.config/btop
+      - ./certs:/certs
+      - /etc/localtime:/etc/localtime:ro
+      # Host disks: btop lists the mounts it sees, they show up under /host
+      - /:/host:ro,rslave
+    # mounts the driver's libnvidia-ml and /dev/nvidia*; the image sets NVIDIA_VISIBLE_DEVICES=all and
+    # NVIDIA_DRIVER_CAPABILITIES=utility (usage, VRAM, temperatures, processes)
+    runtime: nvidia
