@@ -24,7 +24,7 @@ jobs:
           echo "cur=$cur new=$new"
           [ "$cur" = "$new" ] && exit 0
           sha=$(curl -fsSL "https://github.com/aristocratos/btop/archive/refs/tags/v$new.tar.gz" | sha256sum | cut -d' ' -f1)
-          sed -i "s/^ARG BTOP_VERSION=.*/ARG BTOP_VERSION=$new/; s/^ARG BTOP_SHA256=.*/ARG BTOP_SHA256=$sha/" Dockerfile
+          sed -i "s/^ARG BTOP_VERSION=.*/ARG BTOP_VERSION=$new/; s/^ARG BTOP_SHA256=.*/ARG BTOP_SHA256=$sha/" Dockerfile Dockerfile.nvidia
           echo "new=$new" >> "$GITHUB_OUTPUT"
       - name: Open the PR
         if: steps.c.outputs.new != ''

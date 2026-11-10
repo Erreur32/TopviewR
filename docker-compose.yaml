@@ -37,3 +37,5 @@ services:
     # Intel/AMD GPU (optional, needed for nvtop and btop's GPU view):
     # devices:
     #   - /dev/dri:/dev/dri
+    # NVIDIA GPU: image ghcr.io/erreur32/topviewr:nvidia (BTOP_IMAGE in .env) and the NVIDIA runtime:
+    # runtime: nvidia
