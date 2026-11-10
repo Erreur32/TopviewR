@@ -1,0 +1,120 @@
+# syntax=docker/dockerfile:1
+# Debian (glibc) variant, tag :nvidia. NVIDIA's libnvidia-ml (mounted by the NVIDIA container runtime) is built for
+# glibc and crashes nvtop and btop on Alpine (musl). Same tools, scripts and hardening as Dockerfile; also works with
+# AMD, Intel or no GPU at all.
+ARG DEBIAN_VERSION=trixie-slim
+
+# ---------- build: btop, nvtop, ttyd from source, plus the ttyd-cred shim ----------
+FROM debian:${DEBIAN_VERSION} AS build
+ARG BTOP_VERSION=1.4.8
+ARG BTOP_SHA256=67e07c21b770a6d884c5e50ba1d2cfc90732ea57459367d8732ec7ecbeb3be5f
+ARG NVTOP_VERSION=3.3.2
+ARG NVTOP_SHA256=48a295f3b3a917cc851d1aa8b185c09fde3a1b1e741fc57d7fa96b3671271630
+# not packaged in Debian 13
+ARG TTYD_VERSION=1.7.7
+ARG TTYD_SHA256=039dd995229377caee919898b7bd54484accec3bba49c118e2d5cd6ec51e3650
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential cmake curl ca-certificates \
+      libncurses-dev libdrm-dev libudev-dev libwebsockets-dev libjson-c-dev libuv1-dev zlib1g-dev libssl-dev \
+ && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+RUN curl -fsSL -o btop.tar.gz "https://github.com/aristocratos/btop/archive/refs/tags/v${BTOP_VERSION}.tar.gz" \
+ && echo "${BTOP_SHA256}  btop.tar.gz" | sha256sum -c - \
+ && mkdir btop && tar xzf btop.tar.gz -C btop --strip-components=1 \
+    # btop only enables the Intel GPU sources on x86_64; forcing GPU_SUPPORT elsewhere needs them too
+ && make -C btop -j"$(nproc)" GPU_SUPPORT=true INTEL_GPU_SUPPORT=true \
+ && make -C btop install DESTDIR=/out PREFIX=/usr/local \
+ && rm -rf /out/usr/local/share/applications /out/usr/local/share/icons /out/usr/local/share/doc \
+ && /out/usr/local/bin/btop --default-config \
+    # the container fstab does not list host disks: btop reads the real mounts
+    | sed -e "s/^use_fstab = true/use_fstab = false/" \
+          -e "s|^disks_filter = \"\"|disks_filter = \"exclude=/etc/hostname /etc/hosts /etc/resolv.conf /etc/localtime\"|" \
+    > /out/btop.conf.default
+RUN curl -fsSL -o nvtop.tar.gz "https://github.com/Syllo/nvtop/archive/refs/tags/${NVTOP_VERSION}.tar.gz" \
+ && echo "${NVTOP_SHA256}  nvtop.tar.gz" | sha256sum -c - \
+ && mkdir nvtop && tar xzf nvtop.tar.gz -C nvtop --strip-components=1 \
+ && cmake -S nvtop -B nvtop/b -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local \
+      -DNVIDIA_SUPPORT=ON -DAMDGPU_SUPPORT=ON -DINTEL_SUPPORT=ON \
+ && cmake --build nvtop/b -j"$(nproc)" \
+ && install -Dm755 nvtop/b/src/nvtop /out/usr/local/bin/nvtop
+RUN curl -fsSL -o ttyd.tar.gz "https://github.com/tsl0922/ttyd/archive/refs/tags/${TTYD_VERSION}.tar.gz" \
+ && echo "${TTYD_SHA256}  ttyd.tar.gz" | sha256sum -c - \
+ && mkdir ttyd && tar xzf ttyd.tar.gz -C ttyd --strip-components=1 \
+    # Debian's cmake config links libwebsockets statically: ttyd-cred.so must catch lws_set_log_level (it hides the
+    # credential line), so link the shared library
+ && sed -i 's/${LIBWEBSOCKETS_LIBRARIES}/websockets_shared/' ttyd/CMakeLists.txt \
+ && cmake -S ttyd -B ttyd/b -DCMAKE_BUILD_TYPE=Release \
+ && cmake --build ttyd/b -j"$(nproc)" \
+ && ldd ttyd/b/ttyd | grep -q 'libwebsockets\.so' \
+ && install -Dm755 ttyd/b/ttyd /out/usr/local/bin/ttyd
+# keeps the password out of ttyd's command line (see ttyd-cred.c)
+COPY ttyd-cred.c /src/
+RUN mkdir -p /out/usr/local/lib && gcc -shared -fPIC -O2 -Wall -Werror -o /out/usr/local/lib/ttyd-cred.so /src/ttyd-cred.c -ldl
+
+# ---------- final image ----------
+FROM debian:${DEBIAN_VERSION}
+ARG BTOP_VERSION=1.4.8
+ARG NVTOP_VERSION=3.3.2
+ARG VERSION=dev
+ARG REVISION=unknown
+ARG CREATED=unknown
+LABEL org.opencontainers.image.title="TopviewR" \
+      org.opencontainers.image.description="btop, htop or nvtop in the browser via ttyd, hardened for LAN use (Debian, NVIDIA)" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${REVISION}" \
+      org.opencontainers.image.created="${CREATED}" \
+      org.opencontainers.image.source="https://github.com/Erreur32/TopviewR" \
+      org.opencontainers.image.licenses="Apache-2.0 AND GPL-2.0-or-later AND GPL-3.0-or-later AND MIT AND ISC" \
+      io.btop.version="${BTOP_VERSION}" \
+      io.nvtop.version="${NVTOP_VERSION}"
+
+RUN apt-get update && apt-get install -y --no-install-recommends tini curl ca-certificates openssl htop tmux \
+      libncursesw6 libdrm2 libdrm-amdgpu1 libudev1 libwebsockets19t64 libwebsockets-evlib-uv libjson-c5 libuv1t64 zlib1g \
+ && rm -rf /var/lib/apt/lists/* \
+ # the monitor runs as a non-root UID: it must be able to traverse /root to read its config
+ && chmod 0755 /root && mkdir -p /root/.config/btop /certs /usr/local/share/topviewr && chmod 0755 /root/.config \
+ # htop default theme: Black Night, until a theme is picked in htop (F2, saved in the config volume)
+ && echo 'color_scheme=5' > /etc/htoprc
+
+# same call as Alpine's su-exec ("uid:gid cmd..."), so the scripts and tests stay identical
+COPY --chmod=0755 <<'EOF' /usr/local/bin/su-exec
+#!/bin/sh
+ug="$1"; shift
+exec setpriv --reuid="${ug%%:*}" --regid="${ug#*:}" --clear-groups -- "$@"
+EOF
+
+COPY --from=build /out/usr/local/ /usr/local/
+COPY --from=build /out/btop.conf.default /usr/local/share/btop/btop.conf.default
+COPY --chmod=0755 entrypoint.sh healthcheck.sh menu.sh session.sh /usr/local/bin/
+COPY tmux.conf /usr/local/share/topviewr/tmux.conf
+COPY assets/logo.svg /tmp/logo.svg
+COPY CHANGELOG.md /tmp/CHANGELOG.md
+# menu.sh reads single keys (read -n): bash here, busybox sh on Alpine (Debian's dash has no -n)
+RUN sed -i '1s|^#!/bin/sh$|#!/bin/bash|' /usr/local/bin/menu.sh \
+ # fail the build if a tool misses a library
+ && ! ldd /usr/local/bin/btop /usr/local/bin/nvtop /usr/local/bin/ttyd | grep 'not found' \
+ # ttyd's own page with the TopviewR favicon and title, taken from the installed ttyd so it always matches its version
+ && (ttyd -p 7999 -i lo true >/dev/null 2>&1 & pid=$!; \
+     for i in 1 2 3 4 5 6 7 8 9 10; do curl -fsS -o /tmp/index.html http://127.0.0.1:7999/ && break; sleep 0.5; done; \
+     kill "$pid") \
+ && sed -i -e "s|<link rel=\"icon\"[^>]*>|<link rel=\"icon\" type=\"image/svg+xml\" href=\"data:image/svg+xml;base64,$(base64 -w0 /tmp/logo.svg)\">|" \
+           -e 's|<title>[^<]*</title>|<title>TopviewR</title>|' /tmp/index.html \
+ && grep -q 'image/svg+xml;base64' /tmp/index.html && grep -q '<title>TopviewR</title>' /tmp/index.html \
+ && mv /tmp/index.html /usr/local/share/topviewr/index.html && rm /tmp/logo.svg \
+ && sed -n 's/^## \[\([0-9][0-9.]*\)\].*/\1/p' /tmp/CHANGELOG.md | head -1 > /usr/local/share/topviewr/version \
+ && grep -q . /usr/local/share/topviewr/version && rm /tmp/CHANGELOG.md
+COPY licenses/ /usr/local/share/licenses/
+
+# with pid: host tini is not PID 1: register it as child subreaper so it still reaps zombies
+# NVIDIA_*: picked up by the NVIDIA container runtime only (runtime: nvidia), ignored elsewhere;
+# utility = libnvidia-ml (usage, VRAM, temperatures, processes), all that nvtop and btop need
+ENV TINI_SUBREAPER=1 \
+    LANG=C.UTF-8 \
+    XDG_CONFIG_HOME=/root/.config \
+    XDG_STATE_HOME=/tmp \
+    BTOP_PORT=7681 \
+    NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=utility
+
+EXPOSE 7681
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 CMD ["/usr/local/bin/healthcheck.sh"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]

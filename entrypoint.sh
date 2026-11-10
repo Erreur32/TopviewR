@@ -18,8 +18,11 @@ banner() {
 	case "$TLS_MODE" in off|false|0) scheme=http ;; *) scheme=https ;; esac
 	cpu="$(sed -n 's/^model name[[:space:]]*: //p' /proc/cpuinfo | head -1)"
 	ram="$(awk '/^MemTotal:/ { printf "%.1f GiB", $2 / 1048576 }' /proc/meminfo)"
-	set -- /dev/dri/renderD*
-	if [ -e "$1" ]; then gpu="$# render node(s) in /dev/dri"; else gpu="none (mount /dev/dri for nvtop)"; fi
+	gpu=""
+	set -- /dev/dri/renderD*; [ -e "$1" ] && gpu="$# render node(s) in /dev/dri"
+	set -- /dev/nvidia[0-9]*; [ -e "$1" ] && gpu="${gpu:+$gpu, }$# NVIDIA GPU(s)"
+	gpu="${gpu:-none (see GPU in the README)}"
+	if [ -e /etc/alpine-release ]; then base="Alpine $(cat /etc/alpine-release)"; else base="Debian $(cat /etc/debian_version), NVIDIA ready"; fi
 	ver() { "$@" 2>/dev/null | head -1 | tr -d '\033' | grep -o '[0-9][0-9.]*[0-9]' | head -1; }
 	{
 		printf '%s╔%s%s\n' "$b" "$line" "$r"
@@ -37,6 +40,7 @@ banner() {
 		row "CPU" "${cpu:+$cpu, }$(nproc) threads"
 		row "RAM" "$ram"
 		row "GPU" "$gpu"
+		row "Image" "$base"
 		row "Tools" "btop $(ver btop --version), htop $(ver htop --version), nvtop $(ver nvtop --version), ttyd $(ver ttyd --version)"
 		printf '%s╚%s%s\n' "$b" "$line" "$r"
 	} >&2

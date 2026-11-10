@@ -7,26 +7,39 @@ CONF_DIR="${BTOP_CONF_DIR:-/root/.config/btop}"
 
 B=$(printf '\033[1m'); D=$(printf '\033[2m'); G=$(printf '\033[32m'); Y=$(printf '\033[33m'); N=$(printf '\033[0m')
 
-GPU="(no GPU found)"; ls /dev/dri/renderD* >/dev/null 2>&1 && GPU=""
+GPU="(no GPU found)"
+for f in /dev/dri/renderD* /dev/nvidia[0-9]*; do [ -e "$f" ] && GPU=""; done
+# Alpine (musl) cannot load NVIDIA's glibc libnvidia-ml (nvtop crashes on it): NVIDIA needs the :nvidia image.
+# Not keyed on /dev/dri: the NVIDIA runtime mounts the card's render node too.
+NV_ALPINE=""
+[ -e /etc/alpine-release ] && [ -e /dev/nvidia0 ] && NV_ALPINE=1 GPU="(NVIDIA: use the :nvidia image)"
 [ -n "${TMUX:-}" ] && tmux set -g @gpu "$GPU"
 
 run() {
 	[ -n "${TMUX:-}" ] && tmux set -g @tool "$1"
 	# the tool's own args only apply to the default tool
 	args=""; [ "$1" = "$DEFAULT" ] && args="${BTOP_ARGS:-}"
+	# without a usable GPU nvtop exits at once (or crashes): say why instead of starting it
+	if [ "$1" = nvtop ] && [ -n "$GPU" ]; then
+		if [ -n "$NV_ALPINE" ]; then
+			printf '\n%snvtop: NVIDIA GPU found on %s, but this image cannot read it.%s\n\n' "$Y" "$(hostname)" "$N"
+			printf 'NVIDIA needs the Debian variant: image ghcr.io/erreur32/topviewr:nvidia\n'
+			printf 'with runtime: nvidia in the compose file (see GPU in the README).\n\n'
+		else
+			printf '\n%snvtop: no GPU found on %s.%s\n\n' "$Y" "$(hostname)" "$N"
+			printf 'Mount the GPU in the compose file (see GPU in the README):\n'
+			printf '  AMD or Intel: devices: - /dev/dri:/dev/dri\n'
+			printf '  NVIDIA:       image ghcr.io/erreur32/topviewr:nvidia and runtime: nvidia\n\n'
+		fi
+		printf '%sEsc or the bottom bar: switch to btop or htop · any other key: back to the list%s' "$D" "$N"
+		read -r -n 1 _ </dev/tty
+		return
+	fi
 	case "$1" in
 		btop) btop $args ;;
 		# htop and nvtop follow XDG_CONFIG_HOME: keep their settings in the mounted config volume
 		htop|nvtop) XDG_CONFIG_HOME="$CONF_DIR" "$1" $args ;;
 	esac
-	# nvtop exits at once without a GPU: say why instead of leaving a bare line on screen
-	if [ "$1" = nvtop ] && [ -n "$GPU" ]; then
-		printf '\n%snvtop: no GPU found on %s.%s\n\n' "$Y" "$(hostname)" "$N"
-		printf 'nvtop needs an AMD or Intel GPU and /dev/dri mounted in the compose file\n'
-		printf '(devices: - /dev/dri:/dev/dri). NVIDIA is not supported by this image.\n\n'
-		printf '%sEsc or the bottom bar: switch to btop or htop · any other key: back to the list%s' "$D" "$N"
-		read -r -n 1 _ </dev/tty
-	fi
 }
 
 case "${1:-}" in

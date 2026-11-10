@@ -45,6 +45,7 @@ TopviewR is a maintained replacement: same use case and same compose variables, 
 - **Rebuilt every week** for Alpine security fixes, with a Trivy scan on every build (0 known vulnerabilities on 2026-11-04).
 - **Automatic btop updates**: a weekly job opens a PR when a new btop release is out.
 - **Multi-arch** images: `linux/amd64` and `linux/arm64`.
+- **NVIDIA GPUs** with the `:nvidia` variant (Debian, amd64), see [GPU](#gpu-btop-and-nvtop).
 - **Three monitors in one image**, picked with `BTOP_TOOL`: **btop** (default), **htop 3.5.3** (Alpine package) or **nvtop 3.3.2** (GPU monitor, compiled from source). Same login, TLS and non-root protection for all three.
 - **Drop-in compatible**: the old `GOTTY_AUTH_*` variables still work.
 
@@ -56,7 +57,7 @@ TopviewR only packages and hardens these projects; all the monitoring work is th
 |---|---|---|
 | <img src="assets/apps/btop.svg" alt="" width="20" height="20" align="top" /> **btop** by aristocratos | default monitor (CPU, memory, disks, network, GPU, processes) | https://github.com/aristocratos/btop |
 | <img src="assets/apps/htop.svg" alt="" width="20" height="20" align="top" /> **htop** by the htop authors | alternative process monitor (`BTOP_TOOL=htop`) | https://github.com/htop-dev/htop |
-| <img src="assets/apps/nvtop.svg" alt="" width="20" height="20" align="top" /> **nvtop** by Maxime Schmitt | GPU monitor for AMD and Intel (`BTOP_TOOL=nvtop`) | https://github.com/Syllo/nvtop |
+| <img src="assets/apps/nvtop.svg" alt="" width="20" height="20" align="top" /> **nvtop** by Maxime Schmitt | GPU monitor for AMD, Intel and NVIDIA (`BTOP_TOOL=nvtop`) | https://github.com/Syllo/nvtop |
 | **ttyd** by Shuanglei Tao | web terminal: serves the monitor in the browser (auth, TLS, WebSocket) | https://github.com/tsl0922/ttyd |
 | **Alpine Linux** | base image | https://alpinelinux.org |
 | **tini** by Thomas Orozco | init process (signals, zombie reaping) | https://github.com/krallin/tini |
@@ -106,7 +107,7 @@ The page opens on the default tool (`BTOP_TOOL`, btop unless set) with a one-lin
 ```
 
 - **Click** `btop`, `htop` or `nvtop` in the bar, or press **Alt+1**, **Alt+2**, **Alt+3** (with or without Shift, so AZERTY keyboards work too), to switch at once. Plain `1`, `2`, `3` stay with the tools (btop shows or hides its boxes, htop searches a PID).
-- **Esc** opens the switch menu on top of any tool: `1` btop, `2` htop, `3` nvtop (or arrows + Enter, or the mouse), `m` sends a real Esc to the current tool (btop's own Options/Help/Quit menu, closing a search in htop), `q` closes the session.
+- **Esc** opens the switch menu on top of any tool: `1` btop, `2` htop, `3` nvtop (or arrows + Enter, or the mouse), **Esc a second time** sends a real Esc to the current tool (closes btop's own Options/Help/Quit menus, a search in htop), `q` closes this menu and goes back to the tool, `x` closes the session.
 - **Quitting a tool** (`q`, `F10`) shows a small list to pick another one.
 - Inside a tool, the mouse keeps working as usual (btop and htop are clickable).
 
@@ -162,21 +163,40 @@ Legacy compose files that set `GOTTY_AUTH_USER` / `GOTTY_AUTH_PASS` directly in 
 | Host processes | ✅ (`pid: host`) | ✅ (`/proc` mounted) |
 | Real host network | ✅ (`network_mode: host`) | ❌ only the container interface (172.17.x) |
 | Host disks | ✅ via `/:/host:ro,rslave` | not checked |
-| GPU | not tested (test machine has no GPU) | not tested |
+| GPU | ✅ AMD and NVIDIA (see [GPU](#gpu-btop-and-nvtop)) | not tested |
 
 ## GPU (btop and nvtop)
 
-Uncomment `devices: /dev/dri` in the compose file. Not tested on real GPU hardware yet (the test machine has none). On most hosts `/dev/dri/renderD*` belongs to the `render` group (mode 0660); the entrypoint runs the monitor with that group, so it can open the GPU while staying non-root.
+Two images, same tools, scripts and hardening. Both start fine without a GPU: nvtop then says what to mount instead of crashing, and the startup header lists what it found.
+
+| Image | Base | GPU | Size |
+|---|---|---|---|
+| `ghcr.io/erreur32/topviewr:latest` | Alpine (musl), amd64 + arm64 | AMD, Intel | ~31 MB |
+| `ghcr.io/erreur32/topviewr:nvidia` | Debian 13 (glibc), amd64 | **NVIDIA**, AMD, Intel | ~155 MB |
+
+NVIDIA needs its own image: btop and nvtop read NVIDIA GPUs through `libnvidia-ml`, which the NVIDIA container runtime mounts from the host driver. That library is built for glibc and crashes the tools on Alpine (musl).
+
+**AMD or Intel** (either image): uncomment `devices: /dev/dri` in the compose file. On most hosts `/dev/dri/renderD*` belongs to the `render` group (mode 0660); the entrypoint runs the monitor with that group, so it can open the GPU while staying non-root.
+
+**NVIDIA**: install the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) on the host (`docker info | grep -i runtimes` must list `nvidia`), then in the compose file:
+
+```yaml
+    image: ghcr.io/erreur32/topviewr:nvidia
+    runtime: nvidia
+```
+
+The image already sets `NVIDIA_VISIBLE_DEVICES=all` and `NVIDIA_DRIVER_CAPABILITIES=utility` (usage, VRAM, temperatures, processes: all the tools need). Nothing else changes: same read-only, non-root, no-new-privileges setup.
+
+Tested on 2026-11-10 with the hardened compose (non-root, read-only):
 
 | GPU | btop | nvtop |
 |---|---|---|
-| AMD (amdgpu) | ✅ via `/sys` (integrated GPUs too, new in btop 1.4.8) | ✅ via libdrm |
-| Intel (i915 / xe) | partial: usage needs `perf` access, blocked for non-root when `kernel.perf_event_paranoid` > 2 (Debian default: 3) | ✅ via libdrm |
-| NVIDIA | ❌ | ❌ |
+| AMD (amdgpu), Radeon 8060S | ✅ via `/sys` (integrated GPUs too, new in btop 1.4.8) | ✅ via libdrm: usage, clocks, VRAM, temperature, power, processes |
+| NVIDIA (`:nvidia` image), RTX 3060 Ti, driver 550 | ✅ GPU meter | ✅ via NVML: usage, clocks, VRAM, temperature, fan, power, processes (other users' too) |
+| Intel (i915 / xe) | partial: usage needs `perf` access, blocked for non-root when `kernel.perf_event_paranoid` > 2 (Debian default: 3) | ✅ via libdrm (not tested on hardware) |
 
-- **NVIDIA does not work**: both tools load NVIDIA's `libnvidia-ml`, which is built for glibc, and the image uses musl (Alpine). It would need a glibc (Debian) image.
-- **Per-process GPU usage** is read from `/proc/<pid>/fdinfo`. As a non-root user, nvtop only sees it for processes it is allowed to inspect: global usage, VRAM and temperatures are shown, but GPU processes owned by root or by other users may be missing from the process list. That is the price of running non-root.
-
+- **Per-process GPU usage on AMD and Intel** is read from `/proc/<pid>/fdinfo`. As a non-root user, nvtop only sees it for processes it is allowed to inspect: global usage, VRAM and temperatures are shown, but GPU processes owned by root or by other users may be missing from the process list. That is the price of running non-root. NVIDIA reports processes through the driver, so they all show.
+- The `:nvidia` image ships Debian's **htop 3.4.1** (Alpine: 3.5.3); btop, nvtop and ttyd are the same versions, built from source.
 
 ## Variables
 
@@ -230,6 +250,7 @@ then `docker compose up -d`. `GOTTY_*` variables keep working. See `docker-compo
 | `v1.0.0` | a TopviewR release (see [CHANGELOG](CHANGELOG.md)) | pin a known version |
 | `1.4.8` | last build shipping btop 1.4.8 | follow one btop version, still get Alpine fixes |
 | `1.4.8-YYYYMMDD` | a dated weekly build | rollback |
+| `nvidia`, `v1.4.0-nvidia`, `1.4.8-nvidia`, `1.4.8-YYYYMMDD-nvidia` | the same, Debian variant for NVIDIA GPUs (amd64) | NVIDIA hosts, see [GPU](#gpu-btop-and-nvtop) |
 
 TopviewR has its own version (`v1.0.0`, `v1.1.0`...); the btop version it ships is in the `io.btop.version` image label and in the changelog.
 
@@ -238,13 +259,14 @@ TopviewR has its own version (`v1.0.0`, `v1.1.0`...); the btop version it ships 
 ```sh
 make build    # local image topviewr:dev
 make test     # build + end-to-end tests (needs Docker and python3)
+make test-nvidia  # same for the Debian (NVIDIA) variant, topviewr:dev-nvidia
 make scan     # Trivy
 make buildx   # amd64 + arm64 without push (needs QEMU/binfmt for arm64)
 scripts/dev.sh  # local test server from this tree (hardened compose, port 7682, logs in the foreground)
 REGISTRY=ghcr.io/erreur32 make push
 ```
 
-Bumping btop by hand: change `BTOP_VERSION` and `BTOP_SHA256` in the `Dockerfile` (`curl -fsSL https://github.com/aristocratos/btop/archive/refs/tags/vX.Y.Z.tar.gz | sha256sum`).
+Bumping btop by hand: change `BTOP_VERSION` and `BTOP_SHA256` in `Dockerfile` and `Dockerfile.nvidia` (`curl -fsSL https://github.com/aristocratos/btop/archive/refs/tags/vX.Y.Z.tar.gz | sha256sum`).
 
 ## Automation (GitHub)
 

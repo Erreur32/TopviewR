@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 TopviewR has its own version; the btop version it ships is listed in each entry.
 
+## [1.4.0] - 2026-11-10
+
+Ships **btop 1.4.8**, **htop 3.5.3**, **nvtop 3.3.2** and **ttyd 1.7.7** on **Alpine 3.24**, for `linux/amd64` and `linux/arm64`; and the new **`:nvidia`** image on **Debian 13** (htop 3.4.1), for `linux/amd64`.
+
+### Added
+
+- **NVIDIA GPUs**: new `:nvidia` image (`Dockerfile.nvidia`), on Debian because NVIDIA's `libnvidia-ml` is built for glibc and crashes btop and nvtop on Alpine. Same scripts, tests and hardening; use it with `runtime: nvidia`. It also works with AMD, Intel or no GPU. Tested on an RTX 3060 Ti (nvtop: usage, VRAM, temperature, power, processes; btop: GPU meter) and on an AMD Radeon 8060S.
+- Startup header: NVIDIA GPUs in the GPU line, and the image base (Alpine or Debian).
+
+### Changed
+
+- **Esc menu**: **Esc a second time** now sends a real Esc to the tool, so btop's own menus (Options, Help, Quit) close as usual; `q` only closes the TopviewR menu, and **`x`** closes the session (was `q`, the tools' own quit key, easy to hit by mistake). `m` is gone.
+- nvtop without a usable GPU is no longer started: the message says what to mount (`/dev/dri` for AMD/Intel, the `:nvidia` image for NVIDIA), and names the `:nvidia` image when the Alpine image sees an NVIDIA card.
+
 ## [1.3.0] - 2026-11-05
 
 Ships **btop 1.4.8**, **htop 3.5.3**, **nvtop 3.3.2** and **ttyd 1.7.7** on **Alpine 3.24**, for `linux/amd64` and `linux/arm64`.
