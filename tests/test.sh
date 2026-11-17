@@ -116,8 +116,10 @@ check "tmux layer under the tool" "$(docker exec "$NAME" sh -c 'for p in /proc/[
 
 echo "== tmux layer: no way to a shell"
 keys="$(docker run --rm --entrypoint sh "$IMG" -c 'export TMUX_TMPDIR=/tmp; grep -v destroy-unattached /usr/local/share/topviewr/tmux.conf > /tmp/t.conf; tmux -L t -f /tmp/t.conf new-session -d "sleep 5" && tmux -L t list-keys')"
-check "only the TopviewR bindings (16)" "$(printf '%s\n' "$keys" | grep -c .)" 16
+check "only the TopviewR bindings (17)" "$(printf '%s\n' "$keys" | grep -c .)" 17
 check "nvtop Esc guard" "$(docker run --rm --entrypoint sh "$IMG" -c 'grep -qF "==:#{@tool},nvtop" /usr/local/bin/topviewr-menu.sh && echo yes || echo no')" yes
+printf '%s\n' "$keys" | grep 'MouseUp1Status' | grep -qF 'mouse_status_range},menu' && ok "menu opens on mouse-up" || ko "menu opens on mouse-up"
+printf '%s\n' "$keys" | grep 'MouseDown1Status' | grep -qF 'mouse_status_range},menu' && ko "menu is not opened on mouse-down" || ok "menu is not opened on mouse-down"
 printf '%s\n' "$keys" | grep -qE 'command-prompt|new-window|split-window|new-pane|copy-mode|pipe' \
 	&& ko "no binding can open a shell" || ok "no binding can open a shell"
 printf '%s\n' "$keys" | grep 'run-shell' | grep -vF '/usr/local/bin/topviewr-menu.sh' | grep -q . \
