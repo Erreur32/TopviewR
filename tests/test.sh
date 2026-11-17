@@ -40,6 +40,7 @@ ws() { # $1 = scheme, $2 = Origin; prints the HTTP code of the WebSocket handsha
 echo "== Refuses to start"
 docker run --rm "$IMG" >/dev/null 2>&1 && ko "without password" || ok "without password"
 docker run --rm -e BTOP_PASS=short "$IMG" >/dev/null 2>&1 && ko "short password" || ok "short password"
+docker run --rm -e BTOP_PASS="$PASS" -e BTOP_ICON=banana "$IMG" >/dev/null 2>&1 && ko "invalid BTOP_ICON" || ok "invalid BTOP_ICON"
 
 echo "== HTTP + auth (BTOP_* variables)"
 start -e BTOP_PASS="$PASS"
@@ -57,6 +58,17 @@ check "ttyd command line readable for the check" "$(printf '%s\n' "$cmdlines" | 
 printf '%s\n' "$cmdlines" | grep -qF "$PASS" && ko "password not in any command line" || ok "password not in any command line"
 t0=$(date +%s); docker stop "$NAME" >/dev/null; t=$(( $(date +%s) - t0 ))
 [ "$t" -le 3 ] && ok "docker stop in ${t}s" || ko "docker stop too slow (${t}s)"
+
+echo "== PWA: manifest script in the page, icon from BTOP_ICON"
+start -e BTOP_PASS="$PASS"
+page="$(curl -s -u "admin:$PASS" "http://127.0.0.1:$PORT/")"
+printf '%s' "$page" | grep -q 'URL.createObjectURL' && ok "page carries the PWA script" || ko "PWA script missing"
+printf '%s' "$page" | grep -q 'var DEFAULT = "logo";' && ok "default icon is the logo" || ko "default icon is not the logo"
+for t in btop htop nvtop; do printf '%s' "$page" | grep -q "$t:\"data:image/svg+xml;base64," && ok "icon $t embedded" || ko "icon $t missing"; done
+start -e BTOP_PASS="$PASS" -e BTOP_ICON=HTOP --read-only --tmpfs /tmp
+page="$(curl -s -u "admin:$PASS" "http://127.0.0.1:$PORT/")"
+printf '%s' "$page" | grep -q 'var DEFAULT = "htop";' && ok "BTOP_ICON=htop (read-only image)" || ko "BTOP_ICON not applied"
+start -e BTOP_PASS="$PASS"
 
 echo "== BTOP_DEBUG: ttyd notices, credential still hidden"
 start -e BTOP_PASS="$PASS" -e BTOP_DEBUG=true

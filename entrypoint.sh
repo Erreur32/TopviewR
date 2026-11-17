@@ -73,12 +73,23 @@ case "$BTOP_UID$BTOP_GID" in *[!0-9]*) die "BTOP_UID and BTOP_GID must be numeri
 case "$PORT" in ''|*[!0-9]*) die "BTOP_PORT must be numeric" ;; esac
 [ "$BTOP_UID" = 0 ] && log "WARNING: $TOOL runs as root, its kill key can end any host process."
 
+# PWA icon (installed app, bookmark): BTOP_ICON is the default, ?icon= in the URL overrides it per shortcut (pwa.js)
+INDEX=/usr/local/share/topviewr/index.html
+ICON="$(echo "${BTOP_ICON:-logo}" | tr '[:upper:]' '[:lower:]')"
+case "$ICON" in logo|btop|htop|nvtop) ;; *) die "BTOP_ICON must be logo, btop, htop or nvtop" ;; esac
+if [ "$ICON" != logo ]; then
+	# the image is read-only in the hardened compose files: the page copy goes to /tmp (tmpfs)
+	sed "s|var DEFAULT = \"logo\";|var DEFAULT = \"$ICON\";|" "$INDEX" > /tmp/topviewr-index.html \
+		&& grep -q "var DEFAULT = \"$ICON\";" /tmp/topviewr-index.html && INDEX=/tmp/topviewr-index.html \
+		|| log "BTOP_ICON not applied (cannot write /tmp), using the logo"
+fi
+
 set -- ttyd -W -O -p "$PORT" -w /tmp \
 	-m "${BTOP_MAX_CLIENTS:-3}" \
 	-t "titleFixed=${BTOP_TITLE:-TopviewR @ $(hostname)}" \
 	-t "fontSize=${BTOP_FONT_SIZE:-16}" \
 	-t "disableLeaveAlert=true" \
-	-I /usr/local/share/topviewr/index.html
+	-I "$INDEX"
 
 # ttyd log level: errors and warnings only (refused origins stay visible); BTOP_DEBUG adds libwebsockets notices
 # (every connection, the startup config). The credential line is masked by ttyd-cred.so either way.
