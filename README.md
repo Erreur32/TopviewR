@@ -265,6 +265,7 @@ Tested on 2026-11-10 with the hardened compose (non-root, read-only):
 | `BTOP_UID` / `BTOP_GID` | `10001` / group of `/dev/dri/renderD*` if mounted, else `10001` | monitor user (chosen to match no host account) and group (the render group gives GPU access) |
 | `BTOP_MAX_CLIENTS` | `3` | concurrent sessions |
 | `BTOP_TITLE` | `TopviewR @ <hostname>` | browser tab title |
+| `BTOP_ICON` | `logo` | icon of the installed app and of the tab: `logo`, `btop`, `htop` or `nvtop` (see [Install as an app](#install-as-an-app-pwa)) |
 | `BTOP_FONT_SIZE` | `16` | font size |
 | `BTOP_THEME` | `dark` | `light` for a light background |
 | `BTOP_AUTH_HEADER` | | auth done by a reverse proxy (`ttyd -H`) |
@@ -274,6 +275,17 @@ Tested on 2026-11-10 with the hardened compose (non-root, read-only):
 The compose files pass the variables listed in `.env.example`; to use any other `BTOP_*` above, add it to the compose `environment:` block (or a `docker-compose.override.yml`).
 
 btop config: `./config/btop.conf`, created on first start if missing (never overwritten). By default `use_fstab = false` and Docker's fake disks are filtered out, so the real host disks are shown.
+
+## Install as an app (PWA)
+
+TopviewR can be installed as an app from Chrome, Edge or Brave (address bar install icon, or menu, *Install TopviewR*): its own window without tabs or address bar, and its own icon on the desktop, taskbar or phone home screen. Chrome only offers it over **HTTPS with a trusted certificate** (behind a reverse proxy, or after trusting the self-signed one); on `http://` or an untrusted certificate there is no install button.
+
+**Choosing the icon**: `logo` (TopviewR, default), `btop`, `htop` or `nvtop`.
+
+- For the whole server: `BTOP_ICON=htop` in `.env`.
+- Per shortcut: add `?icon=` to the URL before installing, for example `https://server:7681/?icon=nvtop`. You can install several apps from the same server, one per tool, each with its own icon and name (`nvtop @ server`). The installed app keeps its icon.
+
+The page builds its manifest and PNG icons itself, because ttyd serves a single page and nothing else. There is no service worker: the app needs the server to be reachable, like the page itself.
 
 ## Migrating from big-bear-btop
 

@@ -66,6 +66,8 @@ COPY --from=build /out/btop.conf.default /usr/local/share/btop/btop.conf.default
 COPY --chmod=0755 entrypoint.sh healthcheck.sh menu.sh session.sh check-update.sh topviewr-menu.sh /usr/local/bin/
 COPY tmux.conf /usr/local/share/topviewr/tmux.conf
 COPY assets/logo.svg /tmp/logo.svg
+COPY assets/apps/ /tmp/apps/
+COPY pwa.js pwa-inject.sh /tmp/
 COPY CHANGELOG.md /tmp/CHANGELOG.md
 # ttyd's own page with the TopviewR favicon and title, taken from the installed ttyd so it always matches its version
 RUN (ttyd -p 7999 -i lo true >/dev/null 2>&1 & pid=$!; \
@@ -75,7 +77,9 @@ RUN (ttyd -p 7999 -i lo true >/dev/null 2>&1 & pid=$!; \
            -e 's|<title>[^<]*</title>|<title>TopviewR</title>|' /tmp/index.html \
  # fail the build if a future ttyd page no longer matches
  && grep -q 'image/svg+xml;base64' /tmp/index.html && grep -q '<title>TopviewR</title>' /tmp/index.html \
- && mv /tmp/index.html /usr/local/share/topviewr/index.html && rm /tmp/logo.svg \
+ # PWA: manifest and icons built in the page (ttyd serves nothing else), see pwa.js
+ && sh /tmp/pwa-inject.sh /tmp/index.html \
+ && mv /tmp/index.html /usr/local/share/topviewr/index.html && rm -r /tmp/logo.svg /tmp/apps /tmp/pwa.js /tmp/pwa-inject.sh \
  # TopviewR version for the startup header: the latest released entry of the changelog
  && sed -n 's/^## \[\([0-9][0-9.]*\)\].*/\1/p' /tmp/CHANGELOG.md | head -1 > /usr/local/share/topviewr/version \
  && grep -q . /usr/local/share/topviewr/version && rm /tmp/CHANGELOG.md

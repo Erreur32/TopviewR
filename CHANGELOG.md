@@ -8,6 +8,12 @@ TopviewR has its own version; the btop version it ships is listed in each entry.
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-11-17
+
+### Added
+
+- **Install as an app (PWA)**: Chrome, Edge and Brave can install TopviewR in its own window with its own icon. The page builds the web manifest and the PNG icons itself (ttyd serves a single page). The icon is chosen with `BTOP_ICON` (`logo`, `btop`, `htop`, `nvtop`) or per shortcut with `?icon=` in the URL, which also sets the tab icon and the app name (`htop @ server`). HTTPS with a trusted certificate is needed for the install button.
+
 ## [1.6.3] - 2026-11-17
 
 ### Fixed
