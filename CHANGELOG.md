@@ -8,6 +8,18 @@ TopviewR has its own version; the btop version it ships is listed in each entry.
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-11-17
+
+### Added
+
+- **Version in the interface**: the TopviewR version is shown in the footer bar, the Esc menu and the tool chooser. The startup header keeps it and adds an `Update` line when a newer release exists.
+- **Update check**: one HTTPS request to the GitHub releases API at container start, comparing the tag with the running version (`sort -V`). A newer release appears as `↑ vX.Y.Z` in the footer and in the menus, with the releases URL. `BTOP_UPDATE_CHECK=false` disables the request; offline, rate-limited or malformed responses are ignored.
+
+### Fixed
+
+- `BTOP_RESTORE_LAST` and `BTOP_UPDATE_CHECK` are now passed by the three compose files, so their `.env` values reach the container.
+- `BTOP_ARGS` is no longer passed to htop or nvtop in the direct `BTOP_MENU=false` mode either.
+
 ## [1.5.1] - 2026-11-17
 
 ### Fixed

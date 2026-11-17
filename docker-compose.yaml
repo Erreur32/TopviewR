@@ -20,7 +20,9 @@ services:
       - no-new-privileges:true
     cpu_shares: 10
     environment:
-      BTOP_TOOL: ${BTOP_TOOL:-btop}   # btop, htop or nvtop
+      BTOP_TOOL: ${BTOP_TOOL:-btop}   # initial tool; the last one used is remembered
+      BTOP_RESTORE_LAST: ${BTOP_RESTORE_LAST:-true}
+      BTOP_UPDATE_CHECK: ${BTOP_UPDATE_CHECK:-true}   # false: no request to GitHub at start
       BTOP_USER: ${BTOP_USER:-admin}
       BTOP_PASS: ${BTOP_PASS:?set BTOP_PASS in .env}
       BTOP_TLS: ${BTOP_TLS:-auto}

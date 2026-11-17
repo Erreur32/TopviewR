@@ -2,6 +2,8 @@
 # End-to-end tests for the image: ./tests/test.sh [image]
 set -eu
 IMG="${1:-topviewr:dev}"
+VERSION="$(docker run --rm --entrypoint cat "$IMG" /usr/local/share/topviewr/version 2>/dev/null || true)"
+VERSION="${VERSION:-dev}"
 PASS="test-$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 PORT=17681
 NAME=btop-test-$$
@@ -15,13 +17,18 @@ refused() { case "$2" in 200|101) ko "$1 (got $2)" ;; *) ok "$1 ($2)" ;; esac; }
 code() { curl -sk -o /dev/null -m 4 -w '%{http_code}' "$@" || true; }
 cleanup() { docker rm -f "$NAME" >/dev/null 2>&1 || true; rm -rf "$CERTS"; }
 trap cleanup EXIT
-start() { cleanup; mkdir -p "$CERTS"; docker run -d --name "$NAME" -p "127.0.0.1:$PORT:7681" "$@" "$IMG" >/dev/null; sleep 2; }
+start() { cleanup; mkdir -p "$CERTS"; docker run -d --name "$NAME" -p "127.0.0.1:$PORT:7681" -e BTOP_UPDATE_CHECK=false "$@" "$IMG" >/dev/null; sleep 2; }
 tool_running() { docker exec "$NAME" sh -c 'for p in /proc/[0-9]*; do cat $p/comm 2>/dev/null; done' | grep -qx "$1" && echo yes || echo no; }
 switch_tool() { # $1 = tool; same command as the tmux bar/menu, without a browser
 	sock=$(docker exec "$NAME" sh -c 'ls -d /tmp/tmux-*/topviewr-* 2>/dev/null | head -1' | sed 's|.*/||')
 	[ -n "$sock" ] || return 1
 	docker exec -u 10001:10001 "$NAME" env HOME=/tmp TMUX_TMPDIR=/tmp tmux -L "$sock" \
 		respawn-pane -k -t main:0.0 "/usr/local/bin/menu.sh --run $1"
+}
+tmux_opt() { # $1 = user option; prints its value, or nothing if there is no session
+	sock=$(docker exec "$NAME" sh -c 'ls -d /tmp/tmux-*/topviewr-* 2>/dev/null | head -1' | sed 's|.*/||')
+	[ -n "$sock" ] || return 0
+	docker exec -u 10001:10001 "$NAME" env HOME=/tmp TMUX_TMPDIR=/tmp tmux -L "$sock" show-options -g -v "$1" 2>/dev/null || true
 }
 ws() { # $1 = scheme, $2 = Origin; prints the HTTP code of the WebSocket handshake
 	curl -sk -o /dev/null -m 3 -w '%{http_code}' -u "admin:$PASS" \
@@ -131,6 +138,8 @@ LASTCONF="$(mktemp -d)"; chmod 755 "$LASTCONF"
 start -e BTOP_PASS="$PASS" -e BTOP_TOOL=htop -v "$LASTCONF:/root/.config/btop"
 python3 -I "$(dirname "$0")/ws_client.py" 127.0.0.1 "$PORT" admin "$PASS" 14 & client=$!; sleep 3
 check "starts on BTOP_TOOL" "$(tool_running htop)" yes
+check "version in tmux" "$(tmux_opt @version)" "$VERSION"
+check "no update when the check is off" "$(tmux_opt @update)" ""
 switch_tool btop && ok "switch to btop" || ko "switch to btop"
 sleep 2
 check "last tool saved" "$(cat "$LASTCONF/.last-tool" 2>/dev/null)" btop
@@ -150,6 +159,23 @@ cleanup
 docker run --rm -v "$LASTCONF:/c" --entrypoint sh "$IMG" \
 	-c "find /c -mindepth 1 -maxdepth 1 -exec rm -rf {} +; chown $(id -u):$(id -g) /c"
 rmdir "$LASTCONF"
+
+echo "== Update check (fake GitHub API)"
+FAKE="$(mktemp -d)"
+cat > "$FAKE/curl" <<'EOF'
+#!/bin/sh
+printf '{"tag_name": "v99.0.0"}\n'
+EOF
+chmod 755 "$FAKE/curl"
+start -e BTOP_PASS="$PASS" -e BTOP_UPDATE_CHECK=true \
+	-e PATH=/fake:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+	-v "$FAKE:/fake:ro"
+check "newer release cached" "$(docker exec "$NAME" cat /tmp/.topviewr-update 2>/dev/null)" 99.0.0
+docker logs "$NAME" 2>&1 | grep -q 'Update.*v99\.0\.0' && ok "update in the startup header" || ko "update in the startup header"
+python3 -I "$(dirname "$0")/ws_client.py" 127.0.0.1 "$PORT" admin "$PASS" 6 & client=$!; sleep 3
+check "update exposed to tmux" "$(tmux_opt @update)" 99.0.0
+wait "$client" || true
+cleanup; rm -rf "$FAKE"
 
 echo
 [ "$fails" -eq 0 ] && echo "All tests passed." || { echo "$fails test(s) failed."; exit 1; }

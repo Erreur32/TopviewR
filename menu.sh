@@ -4,6 +4,9 @@
 # Already running as the non-root user (su-exec), and only the listed keys do something: no way to reach a shell.
 CONF_DIR="${BTOP_CONF_DIR:-/root/.config/btop}"
 LAST_FILE="$CONF_DIR/.last-tool"
+VERSION="$(cat /usr/local/share/topviewr/version 2>/dev/null || echo dev)"
+UPDATE="$(cat /tmp/.topviewr-update 2>/dev/null)"
+case "$UPDATE" in ''|*[!0-9.]*) UPDATE="" ;; esac
 
 # Startup tool: remember the last one used, so a reconnection, a page reload, a new tab or a container restart
 # does not fall back to BTOP_TOOL. BTOP_TOOL is the initial default (and the fallback if the file is invalid).
@@ -24,7 +27,11 @@ for f in /dev/dri/renderD* /dev/nvidia[0-9]*; do [ -e "$f" ] && GPU=""; done
 # Not keyed on /dev/dri: the NVIDIA runtime mounts the card's render node too.
 NV_ALPINE=""
 [ -e /etc/alpine-release ] && [ -e /dev/nvidia0 ] && NV_ALPINE=1 GPU="(NVIDIA: use the :nvidia image)"
-[ -n "${TMUX:-}" ] && tmux set -g @gpu "$GPU"
+if [ -n "${TMUX:-}" ]; then
+	tmux set -g @gpu "$GPU"
+	tmux set -g @version "$VERSION"
+	tmux set -g @update "$UPDATE"
+fi
 
 # The file is written after the GPU check: a nvtop that cannot start must not become the next startup tool.
 save_tool() {
@@ -76,7 +83,11 @@ hint="Enter = $DEFAULT"; [ -n "${TMUX:-}" ] && hint="$hint · Esc or the bottom 
 while :; do
 	[ -n "${TMUX:-}" ] && tmux set -g @tool ""
 	printf '\033[H\033[2J\033[3J'
-	printf '%sTopview%sR%s %s@ %s%s\n\n' "$B" "$G" "$N" "$D" "$(hostname)" "$N"
+	printf '%sTopview%sR%s %sv%s @ %s%s\n' "$B" "$G" "$N" "$D" "$VERSION" "$(hostname)" "$N"
+	if [ -n "$UPDATE" ]; then
+		printf '%s  Update v%s available: https://github.com/Erreur32/TopViewR/releases%s\n' "$Y" "$UPDATE" "$N"
+	fi
+	printf '\n'
 	for t in btop htop nvtop; do
 		case $t in btop) k=1 d="CPU, memory, disks, network, GPU, processes" ;; htop) k=2 d="processes" ;; nvtop) k=3 d="GPU $GPU" ;; esac
 		mark="  "; [ "$t" = "$DEFAULT" ] && mark="${G}>${N} "
