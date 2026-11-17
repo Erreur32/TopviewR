@@ -5,6 +5,7 @@ set -eu
 log() { echo "[topviewr] $*" >&2; }
 die() { log "ERROR: $*"; exit 1; }
 is_true() { case "$(echo "${1:-}" | tr '[:upper:]' '[:lower:]')" in true|1|yes|on) return 0 ;; *) return 1 ;; esac; }
+is_false() { case "$(echo "${1:-}" | tr '[:upper:]' '[:lower:]')" in false|0|no|off) return 0 ;; *) return 1 ;; esac; }
 
 # Startup header: settings and host summary, never a secret (only the user name)
 banner() {
@@ -26,7 +27,7 @@ banner() {
 	ver() { "$@" 2>/dev/null | head -1 | tr -d '\033' | grep -o '[0-9][0-9.]*[0-9]' | head -1; }
 	{
 		printf '%s╔%s%s\n' "$b" "$line" "$r"
-		printf '%s║%s   %sTopviewR %s%s\n' "$b" "$r" "$g" "v$(cat /usr/local/share/topviewr/version 2>/dev/null || echo dev)" "$r"
+		printf '%s║%s   %sTopviewR %s%s\n' "$b" "$r" "$g" "v$VERSION" "$r"
 		printf '%s║%s   %sbtop, htop and nvtop in the browser%s\n' "$b" "$r" "$d" "$r"
 		printf '%s╠%s%s\n' "$b" "$line" "$r"
 		row "URL" "$scheme://$host:$PORT/"
@@ -35,6 +36,7 @@ banner() {
 		row "Menu" "${BTOP_MENU:-true}, default $TOOL"
 		row "Runs as" "UID $BTOP_UID, GID $BTOP_GID"
 		row "Logs" "$LOG_LABEL"
+		if [ -n "$UPDATE" ]; then row "Update" "v$UPDATE available (GitHub releases)"; fi
 		printf '%s╠══ Host %s%s\n' "$b" "${line#════════}" "$r"
 		row "Host" "$(hostname)"
 		row "CPU" "${cpu:+$cpu, }$(nproc) threads"
@@ -54,6 +56,8 @@ if is_true "${BTOP_NO_AUTH:-}"; then NO_AUTH=true; fi
 if [ -n "${GOTTY_AUTH_ENABLED:-}" ] && ! is_true "$GOTTY_AUTH_ENABLED" && [ -z "${BTOP_PASS:-}" ]; then NO_AUTH=true; fi
 
 PORT="${BTOP_PORT:-7681}"
+VERSION="$(cat /usr/local/share/topviewr/version 2>/dev/null || echo dev)"
+UPDATE=""
 BTOP_UID="${BTOP_UID:-10001}"
 TOOL="${BTOP_TOOL:-btop}"
 case "$TOOL" in btop|htop|nvtop) ;; *) die "BTOP_TOOL must be btop, htop or nvtop" ;; esac
@@ -156,7 +160,16 @@ elif [ "$TOOL" = btop ]; then
 	set -- "$@" btop ${BTOP_ARGS:-}
 else
 	# htop and nvtop follow XDG_CONFIG_HOME: point it at the mounted volume so their settings persist too
-	set -- "$@" env XDG_CONFIG_HOME="$CONF_DIR" "$TOOL" ${BTOP_ARGS:-}
+	set -- "$@" env XDG_CONFIG_HOME="$CONF_DIR" "$TOOL"
+fi
+
+# --- Update check: one request at container start; BTOP_UPDATE_CHECK=false disables it ---
+UPDATE_FILE=/tmp/.topviewr-update
+rm -f "$UPDATE_FILE" 2>/dev/null || true
+if ! is_false "${BTOP_UPDATE_CHECK:-}" && [ -x /usr/local/bin/check-update.sh ]; then
+	/usr/local/bin/check-update.sh "$VERSION" "$UPDATE_FILE" || true
+	UPDATE="$(cat "$UPDATE_FILE" 2>/dev/null || true)"
+	case "$UPDATE" in ''|*[!0-9.]*) UPDATE="" ;; esac
 fi
 
 banner

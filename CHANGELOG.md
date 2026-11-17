@@ -8,9 +8,40 @@ TopviewR has its own version; the btop version it ships is listed in each entry.
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-11-17
+
+### Added
+
+- **Version in the interface**: the TopviewR version is shown in the footer bar, the Esc menu and the tool chooser. The startup header keeps it and adds an `Update` line when a newer release exists.
+- **Update check**: one HTTPS request to the GitHub releases API at container start, comparing the tag with the running version (`sort -V`). A newer release appears as `↑ vX.Y.Z` in the footer and in the menus, with the releases URL. `BTOP_UPDATE_CHECK=false` disables the request; offline, rate-limited or malformed responses are ignored.
+
+### Fixed
+
+- `BTOP_RESTORE_LAST` and `BTOP_UPDATE_CHECK` are now passed by the three compose files, so their `.env` values reach the container.
+- `BTOP_ARGS` is no longer passed to htop or nvtop in the direct `BTOP_MENU=false` mode either.
+
+## [1.5.1] - 2026-11-17
+
+### Fixed
+
+- **CI build**: the test suite now empties the config volume as root before removing it, so the job no longer fails after the last-tool test (the volume belongs to UID 10001).
+
+## [1.5.0] - 2026-11-17
+
+### Added
+
+- **The last tool is remembered**: reconnecting, reloading the page, opening a new tab or restarting the container now starts the tool last used (btop, htop or nvtop) instead of going back to `BTOP_TOOL`. The choice is stored in `.last-tool` in the config volume and shared by the container's tabs (the most recent switch wins). `BTOP_TOOL` is the initial tool and the fallback; `BTOP_RESTORE_LAST=false` restores the old behavior, and deleting `config/.last-tool` forgets the choice. A nvtop that cannot start (no GPU) is not remembered.
+
+### Fixed
+
+- `BTOP_ARGS` is passed to btop only, even when `BTOP_TOOL` or the last tool is htop or nvtop.
+
+## [1.4.1] - 2026-11-17
+
 ### Added
 
 - **One compose file per case**: `docker-compose.yaml` (no GPU), `docker-compose.amd-intel.yaml` (`/dev/dri`) and `docker-compose.nvidia.yaml` (`:nvidia` image, `runtime: nvidia`), with a README section for each.
+- **Host GPU group IDs documented** (AMD/Intel): the render group can be 109, 992 or anything else, the entrypoint applies its numeric GID directly, and `group_add` by name fails on Alpine. No compose change needed.
 
 ## [1.4.0] - 2026-11-10
 
