@@ -322,9 +322,8 @@ Bumping btop by hand: change `BTOP_VERSION` and `BTOP_SHA256` in `Dockerfile` an
 
 ## Automation (GitHub)
 
-- `build.yml`: on every push, every PR and every Monday. Build, tests, Trivy, then multi-arch push to `ghcr.io/erreur32/topviewr` (and to the old name `ghcr.io/erreur32/btop-web` during the transition) with tags `latest`, `1.4.8` and `1.4.8-YYYYMMDD`.
+- `build.yml`: on every push, every PR and every Monday. Build, tests, Trivy, then multi-arch push to `ghcr.io/erreur32/topviewr` (and to the old name `ghcr.io/erreur32/btop-web` during the transition) with tags `latest`, `1.4.8` and `1.4.8-YYYYMMDD`. On a `vX.Y.Z` tag, a final `release` job creates the GitHub release with the matching CHANGELOG section, after both matrix builds, tests and image pushes succeed.
 - `btop-release.yml`: every Monday, opens a PR when a new btop release is out. PRs created with `GITHUB_TOKEN` do not trigger CI: close and reopen it, or run `build` by hand.
-- `release.yml`: on each `vX.Y.Z` tag, creates the GitHub release with the matching CHANGELOG section; `build.yml` pushes the `vX.Y.Z` image tag at the same time.
 - `codeql.yml`: CodeQL analysis of the workflows and the Python test client, on every push, every PR and every Monday.
 - Dependabot: GitHub Actions and Alpine base image versions, plus security alerts and fixes.
 

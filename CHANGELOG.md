@@ -8,6 +8,10 @@ TopviewR has its own version; the btop version it ships is listed in each entry.
 
 ## [Unreleased]
 
+### Changed
+
+- **Release after the build**: the GitHub release is now created by the final `release` job of `build.yml` (`needs: build`), after both images are built, tested and pushed. `release.yml` is gone, so a tag can no longer publish a release before its images exist.
+
 ## [1.6.2] - 2026-11-17
 
 ### Fixed
