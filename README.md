@@ -109,10 +109,10 @@ Open `https://<server-ip>:7681`. The browser warns once that the certificate is 
 
 ## Switching tools in the browser
 
-The page opens on the default tool (`BTOP_TOOL`, btop unless set) with a one-line bar at the bottom:
+The page opens on the last tool used (on the first start, `BTOP_TOOL`, btop unless set) with a one-line bar at the bottom:
 
 ```
- TopviewR @ host   Alt+1 [ btop ]  Alt+2 htop   Alt+3 nvtop        Esc: menu
+ TopviewR v1.6.0 @ host   Alt+1 [ btop ]  Alt+2 htop   Alt+3 nvtop     ↑ v1.7.0  Esc: menu
 ```
 
 - **Click** `btop`, `htop` or `nvtop` in the bar, or press **Alt+1**, **Alt+2**, **Alt+3** (with or without Shift, so AZERTY keyboards work too), to switch at once. Plain `1`, `2`, `3` stay with the tools (btop shows or hides its boxes, htop searches a PID).
@@ -120,7 +120,11 @@ The page opens on the default tool (`BTOP_TOOL`, btop unless set) with a one-lin
 - **Quitting a tool** (`q`, `F10`) shows a small list to pick another one.
 - Inside a tool, the mouse keeps working as usual (btop and htop are clickable).
 
-This layer is a locked-down tmux: every default tmux binding is removed (no prefix key, no command prompt, no new window or split), so it cannot open a shell; the only actions are starting one of the three tools and closing the session. `tests/test.sh` checks the binding list. Each browser tab gets its own tmux instance, destroyed when the tab closes. Set `BTOP_MENU=false` to start the tool directly, without the bar and the menu (old behavior).
+This layer is a locked-down tmux: every default tmux binding is removed (no prefix key, no command prompt, no new window or split), so it cannot open a shell; the only actions are starting one of the three tools and closing the session. `tests/test.sh` checks the binding list. Each browser tab gets its own tmux instance, destroyed when the tab closes.
+
+The last tool started is written to `./config/.last-tool` and used again on the next connection (reconnection, page reload, new tab, container restart). `BTOP_TOOL` is the initial tool and the fallback; set `BTOP_RESTORE_LAST=false` to always start on `BTOP_TOOL`, or delete `./config/.last-tool` to forget the choice. The file is shared by the container, so with several tabs open the most recent switch wins. Set `BTOP_MENU=false` to start the tool directly, without the bar and the menu (old behavior).
+
+The footer, the Esc menu and the tool chooser show the TopviewR version. At container start, TopviewR makes one HTTPS request to the GitHub releases API; when a newer release exists, the footer shows `↑ vX.Y.Z` and the menus say where to get it. Set `BTOP_UPDATE_CHECK=false` to disable that request; offline or rate-limited requests are ignored.
 
 ## Login and password
 
@@ -162,6 +166,7 @@ Legacy compose files that set `GOTTY_AUTH_USER` / `GOTTY_AUTH_PASS` directly in 
 
 - **Root on the host can still read the password** (`docker inspect`, the environment of ttyd), like any container secret, and so can members of the `docker` group. Use a dedicated password, never reused elsewhere.
 - **No brute-force protection.** ttyd does not rate-limit attempts. Never expose the port to the Internet. For remote access use a VPN (WireGuard, Tailscale) or a reverse proxy with SSO plus `BTOP_AUTH_HEADER` (the port must then only be reachable by the proxy).
+- **Update check**: one HTTPS request to `api.github.com` at container start, to read the latest release tag. No account and no personal data; the request reveals your IP to GitHub like any HTTPS request. Set `BTOP_UPDATE_CHECK=false` to disable it.
 - ttyd itself runs as root (it reads the certificates and starts btop); only btop, the keyboard-driven part, is non-root. A small root `sh` stays between ttyd and the tool: without `CAP_KILL`, ttyd may not signal the non-root tool, but it can stop this `sh`, which ends the whole session when the tab closes.
 
 ## What btop sees (measured on 2026-11-04)
@@ -202,6 +207,20 @@ Both GPU files are the default [`docker-compose.yaml`](docker-compose.yaml) plus
 
 On most hosts `/dev/dri/renderD*` belongs to the `render` group (mode 0660); the entrypoint runs the monitor with that group, so it can open the GPU while staying non-root. Startup header: `GPU  1 render node(s) in /dev/dri`.
 
+#### Group IDs on the host
+
+Nothing to configure, whatever the host distribution and its GID choices: the entrypoint reads the **numeric** GID of the mounted render node and runs the monitor with it (`su-exec UID:GID`), so a `render` group at 109 on Debian, 992 on some ROCm hosts, or anything else works as is. No `/etc/group` entry is needed inside the container, and `group_add` is not required.
+
+```bash
+getent group render                    # optional, to see the host GID
+stat -c '%g %a %n' /dev/dri/renderD*   # what the entrypoint picks up
+```
+
+- The `Runs as` line of the startup header must show that GID (`docker logs <container>`).
+- `group_add: [render]` or `group_add: [video]` (by **name**) fails on the Alpine image: there are no `render`/`video` entries in its `/etc/group`, so Docker stops with `Unable to find group render: no matching entries in group file`. If you ever need one, use the numeric GID (`group_add: ["992"]`).
+- `video` (44) is not needed for `renderD*` (they are `root:render 0660`); it only matters for legacy `card0` nodes.
+- To force another group, set `BTOP_GID` in `.env` (it overrides the detected one, and the node must be readable by that group).
+
 ### NVIDIA
 
 1. Install the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) on the host: `docker info | grep -i runtimes` must list `nvidia`.
@@ -231,7 +250,9 @@ Tested on 2026-11-10 with the hardened compose (non-root, read-only):
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `BTOP_TOOL` | `btop` | monitor to run: `btop`, `htop` or `nvtop` |
+| `BTOP_TOOL` | `btop` | initial monitor: `btop`, `htop` or `nvtop` |
+| `BTOP_RESTORE_LAST` | `true` | new sessions start on the last tool used; `false` always starts on `BTOP_TOOL` |
+| `BTOP_UPDATE_CHECK` | `true` | one GitHub releases request at container start, shown in the footer and menus; `false` disables it |
 | `BTOP_MENU` | `true` | bottom bar and Esc menu to switch tools; `false` starts `BTOP_TOOL` directly |
 | `BTOP_USER` / `GOTTY_AUTH_USER` | `admin` | username |
 | `BTOP_PASS` / `GOTTY_AUTH_PASS` | required | password (`BTOP_*` wins) |
@@ -249,6 +270,8 @@ Tested on 2026-11-10 with the hardened compose (non-root, read-only):
 | `BTOP_AUTH_HEADER` | | auth done by a reverse proxy (`ttyd -H`) |
 | `BTOP_DEBUG` | `false` | `true` adds ttyd's notices to the logs (each connection, startup config); by default only errors and warnings |
 | `BTOP_ARGS`, `TTYD_EXTRA_ARGS` | | extra btop and ttyd options |
+
+The compose files pass the variables listed in `.env.example`; to use any other `BTOP_*` above, add it to the compose `environment:` block (or a `docker-compose.override.yml`).
 
 btop config: `./config/btop.conf`, created on first start if missing (never overwritten). By default `use_fstab = false` and Docker's fake disks are filtered out, so the real host disks are shown.
 
