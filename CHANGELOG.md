@@ -8,9 +8,12 @@ TopviewR has its own version; the btop version it ships is listed in each entry.
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-11-17
+
 ### Added
 
 - **One compose file per case**: `docker-compose.yaml` (no GPU), `docker-compose.amd-intel.yaml` (`/dev/dri`) and `docker-compose.nvidia.yaml` (`:nvidia` image, `runtime: nvidia`), with a README section for each.
+- **Host GPU group IDs documented** (AMD/Intel): the render group can be 109, 992 or anything else, the entrypoint applies its numeric GID directly, and `group_add` by name fails on Alpine. No compose change needed.
 
 ## [1.4.0] - 2026-11-10
 

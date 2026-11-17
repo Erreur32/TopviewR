@@ -35,6 +35,7 @@ services:
       - /etc/localtime:/etc/localtime:ro
       # Host disks: btop lists the mounts it sees, they show up under /host
       - /:/host:ro,rslave
-    # the GPU render nodes; the entrypoint runs the tools with their group (render), still non-root
+    # the GPU render nodes; the entrypoint runs the tools with the node's numeric group (render), still non-root.
+    # No group_add: group names do not exist in the image, a numeric GID is applied directly (see README, Group IDs on the host)
     devices:
       - /dev/dri:/dev/dri

@@ -202,6 +202,20 @@ Both GPU files are the default [`docker-compose.yaml`](docker-compose.yaml) plus
 
 On most hosts `/dev/dri/renderD*` belongs to the `render` group (mode 0660); the entrypoint runs the monitor with that group, so it can open the GPU while staying non-root. Startup header: `GPU  1 render node(s) in /dev/dri`.
 
+#### Group IDs on the host
+
+Nothing to configure, whatever the host distribution and its GID choices: the entrypoint reads the **numeric** GID of the mounted render node and runs the monitor with it (`su-exec UID:GID`), so a `render` group at 109 on Debian, 992 on some ROCm hosts, or anything else works as is. No `/etc/group` entry is needed inside the container, and `group_add` is not required.
+
+```bash
+getent group render                    # optional, to see the host GID
+stat -c '%g %a %n' /dev/dri/renderD*   # what the entrypoint picks up
+```
+
+- The `Runs as` line of the startup header must show that GID (`docker logs <container>`).
+- `group_add: [render]` or `group_add: [video]` (by **name**) fails on the Alpine image: there are no `render`/`video` entries in its `/etc/group`, so Docker stops with `Unable to find group render: no matching entries in group file`. If you ever need one, use the numeric GID (`group_add: ["992"]`).
+- `video` (44) is not needed for `renderD*` (they are `root:render 0660`); it only matters for legacy `card0` nodes.
+- To force another group, set `BTOP_GID` in `.env` (it overrides the detected one, and the node must be readable by that group).
+
 ### NVIDIA
 
 1. Install the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) on the host: `docker info | grep -i runtimes` must list `nvidia`.
