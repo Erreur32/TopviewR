@@ -145,7 +145,11 @@ start -e BTOP_PASS="$PASS" -e BTOP_TOOL=htop -e BTOP_RESTORE_LAST=false -v "$LAS
 python3 -I "$(dirname "$0")/ws_client.py" 127.0.0.1 "$PORT" admin "$PASS" 6 & client=$!; sleep 3
 check "BTOP_RESTORE_LAST=false ignores the last tool" "$(tool_running htop)" yes
 wait "$client" || true
-cleanup; rm -rf "$LASTCONF"
+cleanup
+# the config volume now belongs to UID 10001: empty it as root, then hand it back to the CI user
+docker run --rm -v "$LASTCONF:/c" --entrypoint sh "$IMG" \
+	-c "find /c -mindepth 1 -maxdepth 1 -exec rm -rf {} +; chown $(id -u):$(id -g) /c"
+rmdir "$LASTCONF"
 
 echo
 [ "$fails" -eq 0 ] && echo "All tests passed." || { echo "$fails test(s) failed."; exit 1; }

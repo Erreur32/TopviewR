@@ -8,6 +8,12 @@ TopviewR has its own version; the btop version it ships is listed in each entry.
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-11-17
+
+### Fixed
+
+- **CI build**: the test suite now empties the config volume as root before removing it, so the job no longer fails after the last-tool test (the volume belongs to UID 10001).
+
 ## [1.5.0] - 2026-11-17
 
 ### Added
