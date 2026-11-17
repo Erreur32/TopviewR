@@ -117,9 +117,25 @@ check "tmux layer under the tool" "$(docker exec "$NAME" sh -c 'for p in /proc/[
 echo "== tmux layer: no way to a shell"
 keys="$(docker run --rm --entrypoint sh "$IMG" -c 'export TMUX_TMPDIR=/tmp; grep -v destroy-unattached /usr/local/share/topviewr/tmux.conf > /tmp/t.conf; tmux -L t -f /tmp/t.conf new-session -d "sleep 5" && tmux -L t list-keys')"
 check "only the TopviewR bindings (16)" "$(printf '%s\n' "$keys" | grep -c .)" 16
-printf '%s\n' "$keys" | grep -qF '==:#{@tool},nvtop' && ok "nvtop Esc guard" || ko "nvtop Esc guard missing"
-printf '%s\n' "$keys" | grep -qE 'command-prompt|new-window|split-window|new-pane|run-shell|copy-mode|pipe' \
+check "nvtop Esc guard" "$(docker run --rm --entrypoint sh "$IMG" -c 'grep -qF "==:#{@tool},nvtop" /usr/local/bin/topviewr-menu.sh && echo yes || echo no')" yes
+printf '%s\n' "$keys" | grep -qE 'command-prompt|new-window|split-window|new-pane|copy-mode|pipe' \
 	&& ko "no binding can open a shell" || ok "no binding can open a shell"
+printf '%s\n' "$keys" | grep 'run-shell' | grep -vF '/usr/local/bin/topviewr-menu.sh' | grep -q . \
+	&& ko "unexpected run-shell" || ok "only the fixed menu launcher"
+
+echo "== menu launcher: current tool selected"
+FAKE="$(mktemp -d)"
+cat > "$FAKE/tmux" <<'EOF'
+#!/bin/sh
+case "$1" in
+	show-options) printf '%s\n' htop ;;
+	display-menu) printf '%s\n' "$*" ;;
+esac
+EOF
+chmod 755 "$FAKE/tmux"
+check "menu starts on the current tool" \
+	"$(docker run --rm -v "$FAKE:/fake:ro" --entrypoint sh "$IMG" -c 'PATH=/fake:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; /usr/local/bin/topviewr-menu.sh /dev/pts/0 %0' | grep -o -- '-C [0-9]*')" "-C 8"
+rm -rf "$FAKE"
 
 echo "== BTOP_MENU=false: tool started directly"
 start -e BTOP_PASS="$PASS" -e BTOP_MENU=false

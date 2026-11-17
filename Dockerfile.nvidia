@@ -84,7 +84,7 @@ EOF
 
 COPY --from=build /out/usr/local/ /usr/local/
 COPY --from=build /out/btop.conf.default /usr/local/share/btop/btop.conf.default
-COPY --chmod=0755 entrypoint.sh healthcheck.sh menu.sh session.sh check-update.sh /usr/local/bin/
+COPY --chmod=0755 entrypoint.sh healthcheck.sh menu.sh session.sh check-update.sh topviewr-menu.sh /usr/local/bin/
 COPY tmux.conf /usr/local/share/topviewr/tmux.conf
 COPY assets/logo.svg /tmp/logo.svg
 COPY CHANGELOG.md /tmp/CHANGELOG.md

@@ -8,6 +8,12 @@ TopviewR has its own version; the btop version it ships is listed in each entry.
 
 ## [Unreleased]
 
+## [1.6.2] - 2026-11-17
+
+### Fixed
+
+- **Esc menu initial selection**: the menu now opens on the current tool (btop, htop or nvtop) instead of no selection, so the first arrow moves from the right place. It is opened by a fixed launcher script (`run-shell`, no user input) and is keyboard-only; the bottom bar and the tools keep the mouse. tmux 3.7c ignores `-C` when `-M` (mouse) is set, hence the launcher.
+
 ## [1.6.1] - 2026-11-17
 
 ### Fixed

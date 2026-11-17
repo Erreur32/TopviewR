@@ -112,15 +112,15 @@ Open `https://<server-ip>:7681`. The browser warns once that the certificate is 
 The page opens on the last tool used (on the first start, `BTOP_TOOL`, btop unless set) with a one-line bar at the bottom:
 
 ```
- TopviewR v1.6.1 @ host   Alt+1 [ btop ]  Alt+2 htop   Alt+3 nvtop     ↑ v1.7.0  Esc: menu
+ TopviewR v1.6.2 @ host   Alt+1 [ btop ]  Alt+2 htop   Alt+3 nvtop     ↑ v1.7.0  Esc: menu
 ```
 
 - **Click** `btop`, `htop` or `nvtop` in the bar, or press **Alt+1**, **Alt+2**, **Alt+3** (with or without Shift, so AZERTY keyboards work too), to switch at once. Plain `1`, `2`, `3` stay with the tools (btop shows or hides its boxes, htop searches a PID).
-- **Esc** opens the switch menu on top of any tool: `1` btop, `2` htop, `3` nvtop (or arrows + Enter, or the mouse). **Esc a second time** closes this menu; for btop and htop it also sends a real Esc to the tool (btop's own Options/Help/Quit menus, a search in htop). nvtop never gets it: on its main screen Esc quits, so the second Esc only closes the TopviewR menu. `q` closes this menu and goes back to the tool, `x` closes the session.
+- **Esc** opens the switch menu on top of any tool: `1` btop, `2` htop, `3` nvtop (or arrows + Enter). The cursor starts on the current tool, so the first arrow moves from the right place. **Esc a second time** closes this menu; for btop and htop it also sends a real Esc to the tool (btop's own Options/Help/Quit menus, a search in htop). nvtop never gets it: on its main screen Esc quits, so the second Esc only closes the TopviewR menu. `q` closes this menu and goes back to the tool, `x` closes the session. The Esc menu is keyboard-only; the bottom bar and the tools keep the mouse.
 - **Quitting a tool** (`q`, `F10`) shows a small list to pick another one.
 - Inside a tool, the mouse keeps working as usual (btop and htop are clickable).
 
-This layer is a locked-down tmux: every default tmux binding is removed (no prefix key, no command prompt, no new window or split), so it cannot open a shell; the only actions are starting one of the three tools and closing the session. `tests/test.sh` checks the binding list. Each browser tab gets its own tmux instance, destroyed when the tab closes.
+This layer is a locked-down tmux: every default tmux binding is removed (no prefix key, no command prompt, no new window or split), so it cannot open a shell; the only actions are starting one of the three tools and closing the session. The Esc menu is opened by a fixed launcher (`topviewr-menu.sh`, no user input); `tests/test.sh` checks the binding list and the launcher. Each browser tab gets its own tmux instance, destroyed when the tab closes.
 
 The last tool started is written to `./config/.last-tool` and used again on the next connection (reconnection, page reload, new tab, container restart). `BTOP_TOOL` is the initial tool and the fallback; set `BTOP_RESTORE_LAST=false` to always start on `BTOP_TOOL`, or delete `./config/.last-tool` to forget the choice. The file is shared by the container, so with several tabs open the most recent switch wins. Set `BTOP_MENU=false` to start the tool directly, without the bar and the menu (old behavior).
 
