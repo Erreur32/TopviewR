@@ -8,6 +8,16 @@ TopviewR has its own version; the btop version it ships is listed in each entry.
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-17
+
+### Added
+
+- **The last tool is remembered**: reconnecting, reloading the page, opening a new tab or restarting the container now starts the tool last used (btop, htop or nvtop) instead of going back to `BTOP_TOOL`. The choice is stored in `.last-tool` in the config volume and shared by the container's tabs (the most recent switch wins). `BTOP_TOOL` is the initial tool and the fallback; `BTOP_RESTORE_LAST=false` restores the old behavior, and deleting `config/.last-tool` forgets the choice. A nvtop that cannot start (no GPU) is not remembered.
+
+### Fixed
+
+- `BTOP_ARGS` is passed to btop only, even when `BTOP_TOOL` or the last tool is htop or nvtop.
+
 ## [1.4.1] - 2026-11-17
 
 ### Added

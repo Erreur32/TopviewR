@@ -16,6 +16,13 @@ code() { curl -sk -o /dev/null -m 4 -w '%{http_code}' "$@" || true; }
 cleanup() { docker rm -f "$NAME" >/dev/null 2>&1 || true; rm -rf "$CERTS"; }
 trap cleanup EXIT
 start() { cleanup; mkdir -p "$CERTS"; docker run -d --name "$NAME" -p "127.0.0.1:$PORT:7681" "$@" "$IMG" >/dev/null; sleep 2; }
+tool_running() { docker exec "$NAME" sh -c 'for p in /proc/[0-9]*; do cat $p/comm 2>/dev/null; done' | grep -qx "$1" && echo yes || echo no; }
+switch_tool() { # $1 = tool; same command as the tmux bar/menu, without a browser
+	sock=$(docker exec "$NAME" sh -c 'ls -d /tmp/tmux-*/topviewr-* 2>/dev/null | head -1' | sed 's|.*/||')
+	[ -n "$sock" ] || return 1
+	docker exec -u 10001:10001 "$NAME" env HOME=/tmp TMUX_TMPDIR=/tmp tmux -L "$sock" \
+		respawn-pane -k -t main:0.0 "/usr/local/bin/menu.sh --run $1"
+}
 ws() { # $1 = scheme, $2 = Origin; prints the HTTP code of the WebSocket handshake
 	curl -sk -o /dev/null -m 3 -w '%{http_code}' -u "admin:$PASS" \
 		-H 'Connection: Upgrade' -H 'Upgrade: websocket' -H 'Sec-WebSocket-Version: 13' \
@@ -118,6 +125,27 @@ python3 -I "$(dirname "$0")/ws_client.py" 127.0.0.1 "$PORT" admin "$PASS" 4 & cl
 check "session runs while the tab is open" "$(procs | sed 's/^[1-9][0-9]*$/yes/')" yes
 wait "$client" || true; sleep 2
 check "nothing left once the tab is closed" "$(procs)" 0
+
+echo "== Last tool remembered across reconnections"
+LASTCONF="$(mktemp -d)"; chmod 755 "$LASTCONF"
+start -e BTOP_PASS="$PASS" -e BTOP_TOOL=htop -v "$LASTCONF:/root/.config/btop"
+python3 -I "$(dirname "$0")/ws_client.py" 127.0.0.1 "$PORT" admin "$PASS" 14 & client=$!; sleep 3
+check "starts on BTOP_TOOL" "$(tool_running htop)" yes
+switch_tool btop && ok "switch to btop" || ko "switch to btop"
+sleep 2
+check "last tool saved" "$(cat "$LASTCONF/.last-tool" 2>/dev/null)" btop
+check "btop runs after the switch" "$(tool_running btop)" yes
+wait "$client" || true; sleep 2
+check "session closed after the disconnect" "$(tool_running btop)" no
+python3 -I "$(dirname "$0")/ws_client.py" 127.0.0.1 "$PORT" admin "$PASS" 8 & client=$!; sleep 3
+check "reconnect opens the last tool" "$(tool_running btop)" yes
+check "reconnect does not open BTOP_TOOL" "$(tool_running htop)" no
+wait "$client" || true; sleep 2
+start -e BTOP_PASS="$PASS" -e BTOP_TOOL=htop -e BTOP_RESTORE_LAST=false -v "$LASTCONF:/root/.config/btop"
+python3 -I "$(dirname "$0")/ws_client.py" 127.0.0.1 "$PORT" admin "$PASS" 6 & client=$!; sleep 3
+check "BTOP_RESTORE_LAST=false ignores the last tool" "$(tool_running htop)" yes
+wait "$client" || true
+cleanup; rm -rf "$LASTCONF"
 
 echo
 [ "$fails" -eq 0 ] && echo "All tests passed." || { echo "$fails test(s) failed."; exit 1; }

@@ -109,7 +109,7 @@ Open `https://<server-ip>:7681`. The browser warns once that the certificate is 
 
 ## Switching tools in the browser
 
-The page opens on the default tool (`BTOP_TOOL`, btop unless set) with a one-line bar at the bottom:
+The page opens on the last tool used (on the first start, `BTOP_TOOL`, btop unless set) with a one-line bar at the bottom:
 
 ```
  TopviewR @ host   Alt+1 [ btop ]  Alt+2 htop   Alt+3 nvtop        Esc: menu
@@ -120,7 +120,9 @@ The page opens on the default tool (`BTOP_TOOL`, btop unless set) with a one-lin
 - **Quitting a tool** (`q`, `F10`) shows a small list to pick another one.
 - Inside a tool, the mouse keeps working as usual (btop and htop are clickable).
 
-This layer is a locked-down tmux: every default tmux binding is removed (no prefix key, no command prompt, no new window or split), so it cannot open a shell; the only actions are starting one of the three tools and closing the session. `tests/test.sh` checks the binding list. Each browser tab gets its own tmux instance, destroyed when the tab closes. Set `BTOP_MENU=false` to start the tool directly, without the bar and the menu (old behavior).
+This layer is a locked-down tmux: every default tmux binding is removed (no prefix key, no command prompt, no new window or split), so it cannot open a shell; the only actions are starting one of the three tools and closing the session. `tests/test.sh` checks the binding list. Each browser tab gets its own tmux instance, destroyed when the tab closes.
+
+The last tool started is written to `./config/.last-tool` and used again on the next connection (reconnection, page reload, new tab, container restart). `BTOP_TOOL` is the initial tool and the fallback; set `BTOP_RESTORE_LAST=false` to always start on `BTOP_TOOL`, or delete `./config/.last-tool` to forget the choice. The file is shared by the container, so with several tabs open the most recent switch wins. Set `BTOP_MENU=false` to start the tool directly, without the bar and the menu (old behavior).
 
 ## Login and password
 
@@ -245,7 +247,8 @@ Tested on 2026-11-10 with the hardened compose (non-root, read-only):
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `BTOP_TOOL` | `btop` | monitor to run: `btop`, `htop` or `nvtop` |
+| `BTOP_TOOL` | `btop` | initial monitor: `btop`, `htop` or `nvtop` |
+| `BTOP_RESTORE_LAST` | `true` | new sessions start on the last tool used; `false` always starts on `BTOP_TOOL` |
 | `BTOP_MENU` | `true` | bottom bar and Esc menu to switch tools; `false` starts `BTOP_TOOL` directly |
 | `BTOP_USER` / `GOTTY_AUTH_USER` | `admin` | username |
 | `BTOP_PASS` / `GOTTY_AUTH_PASS` | required | password (`BTOP_*` wins) |
