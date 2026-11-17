@@ -8,6 +8,12 @@ TopviewR has its own version; the btop version it ships is listed in each entry.
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-11-17
+
+### Fixed
+
+- **Esc in nvtop**: the second Esc now closes the TopviewR menu instead of quitting nvtop and showing the tool chooser. nvtop treats Esc as quit on its main screen (`is_escape_for_quit`), so it is never forwarded; btop and htop still receive it for their own menus. nvtop's F2 Setup is unchanged.
+
 ## [1.6.0] - 2026-11-17
 
 ### Added

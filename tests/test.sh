@@ -117,6 +117,7 @@ check "tmux layer under the tool" "$(docker exec "$NAME" sh -c 'for p in /proc/[
 echo "== tmux layer: no way to a shell"
 keys="$(docker run --rm --entrypoint sh "$IMG" -c 'export TMUX_TMPDIR=/tmp; grep -v destroy-unattached /usr/local/share/topviewr/tmux.conf > /tmp/t.conf; tmux -L t -f /tmp/t.conf new-session -d "sleep 5" && tmux -L t list-keys')"
 check "only the TopviewR bindings (16)" "$(printf '%s\n' "$keys" | grep -c .)" 16
+printf '%s\n' "$keys" | grep -qF '==:#{@tool},nvtop' && ok "nvtop Esc guard" || ko "nvtop Esc guard missing"
 printf '%s\n' "$keys" | grep -qE 'command-prompt|new-window|split-window|new-pane|run-shell|copy-mode|pipe' \
 	&& ko "no binding can open a shell" || ok "no binding can open a shell"
 

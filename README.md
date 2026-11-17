@@ -112,11 +112,11 @@ Open `https://<server-ip>:7681`. The browser warns once that the certificate is 
 The page opens on the last tool used (on the first start, `BTOP_TOOL`, btop unless set) with a one-line bar at the bottom:
 
 ```
- TopviewR v1.6.0 @ host   Alt+1 [ btop ]  Alt+2 htop   Alt+3 nvtop     ↑ v1.7.0  Esc: menu
+ TopviewR v1.6.1 @ host   Alt+1 [ btop ]  Alt+2 htop   Alt+3 nvtop     ↑ v1.7.0  Esc: menu
 ```
 
 - **Click** `btop`, `htop` or `nvtop` in the bar, or press **Alt+1**, **Alt+2**, **Alt+3** (with or without Shift, so AZERTY keyboards work too), to switch at once. Plain `1`, `2`, `3` stay with the tools (btop shows or hides its boxes, htop searches a PID).
-- **Esc** opens the switch menu on top of any tool: `1` btop, `2` htop, `3` nvtop (or arrows + Enter, or the mouse), **Esc a second time** sends a real Esc to the current tool (closes btop's own Options/Help/Quit menus, a search in htop), `q` closes this menu and goes back to the tool, `x` closes the session.
+- **Esc** opens the switch menu on top of any tool: `1` btop, `2` htop, `3` nvtop (or arrows + Enter, or the mouse). **Esc a second time** closes this menu; for btop and htop it also sends a real Esc to the tool (btop's own Options/Help/Quit menus, a search in htop). nvtop never gets it: on its main screen Esc quits, so the second Esc only closes the TopviewR menu. `q` closes this menu and goes back to the tool, `x` closes the session.
 - **Quitting a tool** (`q`, `F10`) shows a small list to pick another one.
 - Inside a tool, the mouse keeps working as usual (btop and htop are clickable).
 
